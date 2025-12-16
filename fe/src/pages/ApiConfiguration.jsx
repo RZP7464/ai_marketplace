@@ -1,37 +1,42 @@
 import React, { useState } from 'react'
-import { ChevronRight, ChevronLeft, Plus, X, Code, Search, ShoppingCart, CreditCard, MessageSquare, Ticket, Loader2, Terminal, Clipboard, Sparkles } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, X, Code, Search, ShoppingCart, CreditCard, MessageSquare, Ticket, Loader2, Terminal, Clipboard, Sparkles, Zap, Edit3, Trash2 } from 'lucide-react'
 import apiService from '../services/api'
 
-const API_CONFIGS = [
+const DEFAULT_API_CONFIGS = [
   { 
     key: 'search_item', 
     label: 'Search Items', 
     icon: Search,
-    description: 'API to search and fetch products from your catalog'
+    description: 'API to search and fetch products from your catalog',
+    isDefault: true
   },
   { 
     key: 'add_to_cart', 
     label: 'Add to Cart', 
     icon: ShoppingCart,
-    description: 'API to add items to shopping cart'
+    description: 'API to add items to shopping cart',
+    isDefault: true
   },
   { 
     key: 'checkout', 
     label: 'Checkout', 
     icon: CreditCard,
-    description: 'API to process checkout and payments'
+    description: 'API to process checkout and payments',
+    isDefault: true
   },
   { 
     key: 'base_prompt', 
     label: 'Base Prompt', 
     icon: MessageSquare,
-    description: 'API for AI assistant base prompt configuration'
+    description: 'API for AI assistant base prompt configuration',
+    isDefault: true
   },
   { 
     key: 'coupons', 
     label: 'Coupons', 
     icon: Ticket,
-    description: 'API to fetch and validate discount coupons'
+    description: 'API to fetch and validate discount coupons',
+    isDefault: true
   }
 ]
 
@@ -150,8 +155,26 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
   const [currentApiIndex, setCurrentApiIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [customApis, setCustomApis] = useState([])
+  const [showAddCustomModal, setShowAddCustomModal] = useState(false)
+  const [newCustomApiName, setNewCustomApiName] = useState('')
+  const [newCustomApiDescription, setNewCustomApiDescription] = useState('')
+  const [editingCustomApi, setEditingCustomApi] = useState(null)
+  
+  // Combine default and custom APIs
+  const API_CONFIGS = [
+    ...DEFAULT_API_CONFIGS,
+    ...customApis.map(api => ({
+      key: api.key,
+      label: api.label,
+      icon: Zap,
+      description: api.description,
+      isDefault: false
+    }))
+  ]
+  
   const [apiConfigs, setApiConfigs] = useState(
-    API_CONFIGS.reduce((acc, api) => ({
+    DEFAULT_API_CONFIGS.reduce((acc, api) => ({
       ...acc,
       [api.key]: {
         url: '',
@@ -167,7 +190,13 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
   const [parseError, setParseError] = useState('')
 
   const currentApi = API_CONFIGS[currentApiIndex]
-  const currentConfig = apiConfigs[currentApi.key]
+  const currentConfig = apiConfigs[currentApi?.key] || {
+    url: '',
+    method: 'GET',
+    headers: [{ key: '', value: '' }],
+    params: [{ key: '', value: '' }],
+    body: ''
+  }
 
   const updateConfig = (field, value) => {
     setApiConfigs(prev => ({
@@ -219,6 +248,80 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
 
   const goToPrevApi = () => {
     if (currentApiIndex > 0) {
+      setCurrentApiIndex(currentApiIndex - 1)
+    }
+  }
+
+  // Custom API management
+  const handleAddCustomApi = () => {
+    if (!newCustomApiName.trim()) return
+    
+    const key = `custom_${Date.now()}`
+    const newApi = {
+      key,
+      label: newCustomApiName.trim(),
+      description: newCustomApiDescription.trim() || 'Custom API endpoint'
+    }
+    
+    setCustomApis(prev => [...prev, newApi])
+    setApiConfigs(prev => ({
+      ...prev,
+      [key]: {
+        url: '',
+        method: 'GET',
+        headers: [{ key: '', value: '' }],
+        params: [{ key: '', value: '' }],
+        body: ''
+      }
+    }))
+    
+    // Navigate to the new custom API
+    setCurrentApiIndex(API_CONFIGS.length) // Will be the index of the new API
+    
+    // Reset and close modal
+    setNewCustomApiName('')
+    setNewCustomApiDescription('')
+    setShowAddCustomModal(false)
+  }
+
+  const handleEditCustomApi = (api) => {
+    setEditingCustomApi(api)
+    setNewCustomApiName(api.label)
+    setNewCustomApiDescription(api.description)
+    setShowAddCustomModal(true)
+  }
+
+  const handleUpdateCustomApi = () => {
+    if (!newCustomApiName.trim() || !editingCustomApi) return
+    
+    setCustomApis(prev => prev.map(api => 
+      api.key === editingCustomApi.key
+        ? { ...api, label: newCustomApiName.trim(), description: newCustomApiDescription.trim() || 'Custom API endpoint' }
+        : api
+    ))
+    
+    // Reset and close modal
+    setNewCustomApiName('')
+    setNewCustomApiDescription('')
+    setEditingCustomApi(null)
+    setShowAddCustomModal(false)
+  }
+
+  const handleDeleteCustomApi = (apiKey) => {
+    const apiIndex = API_CONFIGS.findIndex(api => api.key === apiKey)
+    
+    // Remove from custom APIs
+    setCustomApis(prev => prev.filter(api => api.key !== apiKey))
+    
+    // Remove config
+    setApiConfigs(prev => {
+      const newConfigs = { ...prev }
+      delete newConfigs[apiKey]
+      return newConfigs
+    })
+    
+    // Adjust current index if needed
+    if (currentApiIndex >= apiIndex && currentApiIndex > 0) {
       setCurrentApiIndex(currentApiIndex - 1)
     }
   }
@@ -356,15 +459,34 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
                   onClick={() => setCurrentApiIndex(index)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
                     currentApiIndex === index
-                      ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg'
+                      ? api.isDefault 
+                        ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg'
+                        : 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg'
                       : 'bg-[#2a2a4a] text-gray-400 hover:text-white border border-gray-700'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
                   {api.label}
+                  {!api.isDefault && (
+                    <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  )}
                 </button>
               )
             })}
+            
+            {/* Add Custom API Button */}
+            <button
+              onClick={() => {
+                setEditingCustomApi(null)
+                setNewCustomApiName('')
+                setNewCustomApiDescription('')
+                setShowAddCustomModal(true)
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all bg-[#2a2a4a] text-emerald-400 hover:text-emerald-300 border border-dashed border-emerald-500/50 hover:border-emerald-400"
+            >
+              <Plus className="w-4 h-4" />
+              Add Custom API
+            </button>
           </div>
 
           {/* Current API Form */}
@@ -372,21 +494,52 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
             {/* API Header */}
             <div className="flex items-center justify-between pb-4 border-b border-gray-700">
               <div className="flex items-center gap-3">
-                {React.createElement(currentApi.icon, { className: 'w-6 h-6 text-purple-400' })}
+                {React.createElement(currentApi.icon, { className: `w-6 h-6 ${currentApi.isDefault ? 'text-purple-400' : 'text-emerald-400'}` })}
                 <div>
-                  <h3 className="text-white font-semibold">{currentApi.label}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-white font-semibold">{currentApi.label}</h3>
+                    {!currentApi.isDefault && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        Custom
+                      </span>
+                    )}
+                  </div>
                   <p className="text-gray-500 text-xs">{currentApi.description}</p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowCurlModal(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 text-emerald-400 hover:from-emerald-500/30 hover:to-teal-500/30 hover:border-emerald-400 transition-all group"
-              >
-                <Terminal className="w-4 h-4" />
-                <span className="text-sm font-medium">Import from cURL</span>
-                <Sparkles className="w-3 h-3 opacity-60 group-hover:opacity-100" />
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Edit/Delete for Custom APIs */}
+                {!currentApi.isDefault && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleEditCustomApi(currentApi)}
+                      className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-all"
+                      title="Edit API name"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCustomApi(currentApi.key)}
+                      className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                      title="Delete API"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    <div className="w-px h-6 bg-gray-700 mx-1"></div>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowCurlModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 text-emerald-400 hover:from-emerald-500/30 hover:to-teal-500/30 hover:border-emerald-400 transition-all group"
+                >
+                  <Terminal className="w-4 h-4" />
+                  <span className="text-sm font-medium">Import from cURL</span>
+                  <Sparkles className="w-3 h-3 opacity-60 group-hover:opacity-100" />
+                </button>
+              </div>
             </div>
 
             {/* URL & Method */}
@@ -521,9 +674,16 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
 
           {/* Navigation within APIs */}
           <div className="flex items-center justify-between mt-4 text-sm">
-            <span className="text-gray-500">
-              API {currentApiIndex + 1} of {API_CONFIGS.length}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-gray-500">
+                API {currentApiIndex + 1} of {API_CONFIGS.length}
+              </span>
+              {customApis.length > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  {customApis.length} custom
+                </span>
+              )}
+            </div>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -682,6 +842,102 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
               >
                 <Sparkles className="w-4 h-4" />
                 Import & Fill Fields
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit Custom API Modal */}
+      {showAddCustomModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#252542] rounded-2xl w-full max-w-md shadow-2xl border border-white/10 overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-gradient-to-r from-emerald-500/10 to-teal-500/10">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-emerald-500/20">
+                  <Zap className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-white font-semibold">
+                    {editingCustomApi ? 'Edit Custom API' : 'Add Custom API'}
+                  </h3>
+                  <p className="text-gray-400 text-xs">
+                    {editingCustomApi ? 'Update your custom API details' : 'Create a new custom API endpoint'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAddCustomModal(false)
+                  setNewCustomApiName('')
+                  setNewCustomApiDescription('')
+                  setEditingCustomApi(null)
+                }}
+                className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-2">
+                  API Name <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newCustomApiName}
+                  onChange={(e) => setNewCustomApiName(e.target.value)}
+                  placeholder="e.g., Get Recommendations"
+                  className="w-full px-4 py-3 bg-[#1e1e3f] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 text-sm"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-2">
+                  Description <span className="text-gray-500">(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={newCustomApiDescription}
+                  onChange={(e) => setNewCustomApiDescription(e.target.value)}
+                  placeholder="e.g., API to fetch product recommendations"
+                  className="w-full px-4 py-3 bg-[#1e1e3f] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 text-sm"
+                />
+              </div>
+
+              <div className="bg-[#1e1e3f]/50 rounded-lg p-4 border border-gray-700/50">
+                <div className="flex items-start gap-2 text-xs text-gray-400">
+                  <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                  <p>
+                    Custom APIs allow you to extend your AI assistant with additional functionality specific to your business needs.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10 bg-[#1e1e3f]/30">
+              <button
+                onClick={() => {
+                  setShowAddCustomModal(false)
+                  setNewCustomApiName('')
+                  setNewCustomApiDescription('')
+                  setEditingCustomApi(null)
+                }}
+                className="px-5 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={editingCustomApi ? handleUpdateCustomApi : handleAddCustomApi}
+                disabled={!newCustomApiName.trim()}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:shadow-lg hover:shadow-emerald-500/25 hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                {editingCustomApi ? 'Update API' : 'Add API'}
               </button>
             </div>
           </div>
