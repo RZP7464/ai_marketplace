@@ -1,5 +1,6 @@
 const prisma = require('../lib/prisma');
 const axios = require('axios');
+const https = require('https');
 
 class MCPService {
   /**
@@ -47,15 +48,15 @@ class MCPService {
     const config = api.config;
     const payload = api.payload;
 
-    // Generate tool name from API type and config
-    const toolName = this.generateToolName(api.apiType, config);
+    // Generate tool name from payload name or API type
+    const toolName = payload.name || this.generateToolName(api.apiType, config);
 
-    // Generate input schema from payload
+    // Generate input schema from payload and config
     const inputSchema = this.generateInputSchema(payload, config);
 
     return {
       name: toolName,
-      description: config.description || `Execute ${api.apiType} API`,
+      description: payload.description || config.description || `Execute ${api.apiType} API`,
       inputSchema: {
         type: 'object',
         properties: inputSchema.properties,
@@ -64,8 +65,8 @@ class MCPService {
       metadata: {
         apiId: api.id,
         apiType: api.apiType,
-        method: config.method || 'POST',
-        endpoint: config.url || config.endpoint,
+        method: payload.method || config.method || 'POST',
+        endpoint: payload.url || config.url || config.endpoint,
         authId: api.authId
       }
     };
@@ -144,14 +145,11 @@ class MCPService {
    */
   async executeTool(merchantId, toolName, args) {
     try {
-      // Find the API configuration
+      // Find the API configuration by tool name in payload
       const api = await prisma.api.findFirst({
         where: {
           merchantId: parseInt(merchantId),
-          OR: [
-            { apiType: toolName },
-            { config: { path: ['toolName'], equals: toolName } }
-          ]
+          payload: { path: ['name'], equals: toolName }
         },
         include: {
           credential: true
@@ -188,16 +186,21 @@ class MCPService {
    */
   async prepareApiRequest(api, args) {
     const config = api.config;
+    const payload = api.payload;
     const credential = api.credential;
 
     // Build request config
     const requestConfig = {
-      method: config.method || 'POST',
-      url: config.url || config.endpoint,
+      method: payload.method || config.method || 'POST',
+      url: payload.url || config.url || config.endpoint,
       headers: {
         'Content-Type': 'application/json',
         ...config.headers
-      }
+      },
+      // For development: ignore SSL certificate errors
+      httpsAgent: new https.Agent({  
+        rejectUnauthorized: false
+      })
     };
 
     // Add authentication

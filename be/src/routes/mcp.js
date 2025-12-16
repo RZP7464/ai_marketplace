@@ -5,12 +5,12 @@ const router = express.Router();
 
 /**
  * MCP Server endpoint for a specific merchant
- * GET /api/mcp/:merchantId
+ * GET /api/mcp/merchants/:merchantId
  * 
  * This endpoint implements the Model Context Protocol (MCP)
  * It exposes all merchant's APIs as callable tools
  */
-router.get('/:merchantId', async (req, res) => {
+router.get('/merchants/:merchantId', async (req, res) => {
   const { merchantId } = req.params;
 
   try {
@@ -86,9 +86,9 @@ router.get('/:merchantId', async (req, res) => {
 
 /**
  * List all available tools for a merchant
- * GET /api/mcp/:merchantId/tools
+ * GET /api/mcp/merchants/:merchantId/tools
  */
-router.get('/:merchantId/tools', async (req, res) => {
+router.get('/merchants/:merchantId/tools', async (req, res) => {
   const { merchantId } = req.params;
 
   try {
@@ -119,13 +119,13 @@ router.get('/:merchantId/tools', async (req, res) => {
 
 /**
  * Execute a specific tool
- * POST /api/mcp/:merchantId/tools/:toolName
+ * POST /api/mcp/merchants/:merchantId/tools/:toolName
  * 
  * Body: {
  *   "args": { ...tool arguments... }
  * }
  */
-router.post('/:merchantId/tools/:toolName', async (req, res) => {
+router.post('/merchants/:merchantId/tools/:toolName', async (req, res) => {
   const { merchantId, toolName } = req.params;
   const { args } = req.body;
 
@@ -155,9 +155,9 @@ router.post('/:merchantId/tools/:toolName', async (req, res) => {
 
 /**
  * Get MCP server info for a merchant
- * GET /api/mcp/:merchantId/info
+ * GET /api/mcp/merchants/:merchantId/info
  */
-router.get('/:merchantId/info', async (req, res) => {
+router.get('/merchants/:merchantId/info', async (req, res) => {
   const { merchantId } = req.params;
 
   try {
@@ -179,9 +179,9 @@ router.get('/:merchantId/info', async (req, res) => {
           prompts: false
         },
         toolsCount: tools.length,
-        endpoint: `/api/mcp/${merchantId}`,
-        toolsEndpoint: `/api/mcp/${merchantId}/tools`,
-        executeEndpoint: `/api/mcp/${merchantId}/tools/:toolName`
+        endpoint: `/api/mcp/merchants/${merchantId}`,
+        toolsEndpoint: `/api/mcp/merchants/${merchantId}/tools`,
+        executeEndpoint: `/api/mcp/merchants/${merchantId}/tools/:toolName`
       }
     });
   } catch (error) {
@@ -195,11 +195,11 @@ router.get('/:merchantId/info', async (req, res) => {
 
 /**
  * MCP JSON-RPC endpoint (alternative to SSE)
- * POST /api/mcp/:merchantId/rpc
+ * POST /api/mcp/merchants/:merchantId/rpc
  * 
  * Handles JSON-RPC 2.0 requests for MCP protocol
  */
-router.post('/:merchantId/rpc', async (req, res) => {
+router.post('/merchants/:merchantId/rpc', async (req, res) => {
   const { merchantId } = req.params;
   const { method, params, id } = req.body;
 
