@@ -551,12 +551,12 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false })
                 <button
                   key={api.key}
                   onClick={() => setCurrentApiIndex(index)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors duration-300 ease-out border focus:outline-none focus:ring-0 active:outline-none ${
                     currentApiIndex === index
                       ? api.isDefault 
-                        ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg'
-                        : 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg'
-                      : 'bg-[#2a2a4a] text-gray-400 hover:text-white border border-gray-700'
+                        ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white border-blue-500'
+                        : 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-emerald-500'
+                      : 'bg-[#2a2a4a] text-gray-400 hover:text-white border-gray-700 hover:border-purple-500/50'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -576,7 +576,7 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false })
                 setNewCustomApiDescription('')
                 setShowAddCustomModal(true)
               }}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all bg-[#2a2a4a] text-emerald-400 hover:text-emerald-300 border border-dashed border-emerald-500/50 hover:border-emerald-400"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors duration-300 ease-out focus:outline-none focus:ring-0 active:outline-none bg-[#2a2a4a] text-emerald-400 hover:text-emerald-300 border border-dashed border-emerald-500/50 hover:border-emerald-400"
             >
               <Plus className="w-4 h-4" />
               Add Custom API
@@ -648,7 +648,7 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false })
                         value={twoFactorConfigs.send_otp.url}
                         onChange={(e) => update2FAConfig('send_otp', 'url', e.target.value)}
                         placeholder="https://api.example.com/otp/send"
-                        className="w-full h-[34px] px-3 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-xs"
+                        className="w-full h-[34px] px-3 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-xs input-glow"
                       />
                     </div>
                   </div>
@@ -751,7 +751,7 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false })
                         value={twoFactorConfigs.verify_otp.url}
                         onChange={(e) => update2FAConfig('verify_otp', 'url', e.target.value)}
                         placeholder="https://api.example.com/otp/verify"
-                        className="w-full h-[34px] px-3 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-xs"
+                        className="w-full h-[34px] px-3 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-xs input-glow"
                       />
                     </div>
                   </div>
@@ -903,7 +903,7 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false })
                     value={currentConfig.url}
                     onChange={(e) => updateConfig('url', e.target.value)}
                     placeholder="https://api.example.com/endpoint"
-                    className="w-full h-[42px] px-4 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-sm"
+                    className="w-full h-[42px] px-4 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-sm input-glow"
                   />
                 </div>
               </div>
@@ -928,14 +928,14 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false })
                         value={header.key}
                         onChange={(e) => updateHeader(index, 'key', e.target.value)}
                         placeholder="Key (e.g., Authorization)"
-                        className="flex-1 px-3 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-sm"
+                        className="flex-1 px-3 py-2 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-sm input-glow"
                       />
                       <input
                         type="text"
                         value={header.value}
                         onChange={(e) => updateHeader(index, 'value', e.target.value)}
                         placeholder="Value (e.g., Bearer token)"
-                        className="flex-1 px-3 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-sm"
+                        className="flex-1 px-3 py-2 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-sm input-glow"
                       />
                       <button
                         type="button"
@@ -970,14 +970,14 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false })
                         value={param.key}
                         onChange={(e) => updateParam(index, 'key', e.target.value)}
                         placeholder="Key (e.g., search)"
-                        className="flex-1 px-3 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-sm"
+                        className="flex-1 px-3 py-2 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-sm input-glow"
                       />
                       <input
                         type="text"
                         value={param.value}
                         onChange={(e) => updateParam(index, 'value', e.target.value)}
                         placeholder="Value (e.g., {{query}})"
-                        className="flex-1 px-3 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-sm"
+                        className="flex-1 px-3 py-2 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-sm input-glow"
                       />
                       <button
                         type="button"
@@ -1001,7 +1001,7 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false })
                     onChange={(e) => updateConfig('body', e.target.value)}
                     placeholder='{"key": "value"}'
                     rows={5}
-                    className="w-full px-3 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-sm font-mono resize-none"
+                    className="w-full px-3 py-2 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-sm font-mono resize-none input-glow"
                   />
                 </div>
               )}

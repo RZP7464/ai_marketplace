@@ -655,7 +655,7 @@ function BrandIdentity({ onNext, onBack, isSettingsMode = false, initialData = n
                 maxLength={50}
                 className={`w-full px-4 py-3 bg-[#2a2a4a] border ${
                   errors.display_name ? 'border-red-500' : 'border-gray-700'
-                } rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors`}
+                } rounded-lg text-white placeholder-gray-500 focus:outline-none input-glow`}
               />
               <div className="flex justify-between mt-1">
                 {errors.display_name && (
@@ -679,7 +679,7 @@ function BrandIdentity({ onNext, onBack, isSettingsMode = false, initialData = n
                 maxLength={100}
                 className={`w-full px-4 py-3 bg-[#2a2a4a] border ${
                   errors.display_tagline ? 'border-red-500' : 'border-gray-700'
-                } rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors`}
+                } rounded-lg text-white placeholder-gray-500 focus:outline-none input-glow`}
               />
               <div className="flex justify-between mt-1">
                 {errors.display_tagline && (
@@ -701,7 +701,7 @@ function BrandIdentity({ onNext, onBack, isSettingsMode = false, initialData = n
                 placeholder="Enter a welcome message for your customers"
                 rows={3}
                 maxLength={250}
-                className="w-full px-4 py-3 bg-[#2a2a4a] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors resize-none"
+                className="w-full px-4 py-3 bg-[#2a2a4a] border rounded-lg text-white placeholder-gray-500 focus:outline-none resize-none input-glow"
               />
               <p className="text-gray-500 text-xs mt-1 text-right">{formData.display_message.length}/250</p>
             </div>
@@ -733,7 +733,7 @@ function BrandIdentity({ onNext, onBack, isSettingsMode = false, initialData = n
                 placeholder="Example: You are a helpful shopping assistant for [Brand Name]. Help customers find products, answer questions about sizing, shipping, and returns. Be friendly, concise, and always recommend products that match their needs. If asked about competitors, politely redirect to our offerings."
                 rows={5}
                 maxLength={1000}
-                className="w-full px-4 py-3 bg-[#2a2a4a] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors resize-none font-mono text-sm"
+                className="w-full px-4 py-3 bg-[#2a2a4a] border rounded-lg text-white placeholder-gray-500 focus:outline-none resize-none font-mono text-sm input-glow"
               />
               <div className="flex justify-between mt-1">
                 <p className="text-gray-500 text-xs">
@@ -837,7 +837,7 @@ function BrandIdentity({ onNext, onBack, isSettingsMode = false, initialData = n
                       type="text"
                       value={formData.primary_color}
                       onChange={(e) => setFormData(prev => ({ ...prev, primary_color: e.target.value }))}
-                      className="flex-1 px-2 py-1.5 bg-[#2a2a4a] border border-gray-700 rounded-lg text-white text-xs uppercase focus:outline-none focus:border-purple-500"
+                      className="flex-1 px-2 py-1.5 bg-[#2a2a4a] border rounded-lg text-white text-xs uppercase focus:outline-none input-glow"
                     />
                   </div>
                 </div>
@@ -854,7 +854,7 @@ function BrandIdentity({ onNext, onBack, isSettingsMode = false, initialData = n
                       type="text"
                       value={formData.secondary_color}
                       onChange={(e) => setFormData(prev => ({ ...prev, secondary_color: e.target.value }))}
-                      className="flex-1 px-2 py-1.5 bg-[#2a2a4a] border border-gray-700 rounded-lg text-white text-xs uppercase focus:outline-none focus:border-purple-500"
+                      className="flex-1 px-2 py-1.5 bg-[#2a2a4a] border rounded-lg text-white text-xs uppercase focus:outline-none input-glow"
                     />
                   </div>
                 </div>
@@ -871,7 +871,7 @@ function BrandIdentity({ onNext, onBack, isSettingsMode = false, initialData = n
                       type="text"
                       value={formData.accent_color}
                       onChange={(e) => setFormData(prev => ({ ...prev, accent_color: e.target.value }))}
-                      className="flex-1 px-2 py-1.5 bg-[#2a2a4a] border border-gray-700 rounded-lg text-white text-xs uppercase focus:outline-none focus:border-purple-500"
+                      className="flex-1 px-2 py-1.5 bg-[#2a2a4a] border rounded-lg text-white text-xs uppercase focus:outline-none input-glow"
                     />
                   </div>
                 </div>
