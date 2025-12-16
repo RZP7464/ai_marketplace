@@ -87,12 +87,26 @@ router.post('/public/:merchantSlug', async (req, res) => {
       }
     });
 
+    // Extract product data from tool results if available
+    let toolResult = null;
+    if (aiResponse.functionResults?.length > 0) {
+      // Find search/product related tool result
+      const productResult = aiResponse.functionResults.find(
+        fr => fr.success && fr.data && (fr.tool.includes('search') || fr.tool.includes('product'))
+      );
+      if (productResult) {
+        toolResult = productResult.data;
+      }
+    }
+
     res.json({
       success: true,
       data: {
         response: responseText,
         sessionId: session.id,
-        toolsUsed: aiResponse.functionCalls?.length > 0
+        toolsUsed: aiResponse.functionCalls?.length > 0,
+        toolResult: toolResult,
+        tools: aiResponse.functionCalls?.map(fc => fc.name) || []
       }
     });
   } catch (error) {
