@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { ChevronRight, ChevronLeft, Plus, X, Code, Search, ShoppingCart, CreditCard, MessageSquare, Ticket, Loader2, Terminal, Clipboard, Sparkles, Zap, Edit3, Trash2 } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, X, Code, Search, ShoppingCart, CreditCard, MessageSquare, Ticket, Loader2, Terminal, Clipboard, Sparkles, Zap, Edit3, Trash2, Shield, Send, CheckCircle } from 'lucide-react'
 import apiService from '../services/api'
 
 const DEFAULT_API_CONFIGS = [
@@ -37,6 +37,14 @@ const DEFAULT_API_CONFIGS = [
     icon: Ticket,
     description: 'API to fetch and validate discount coupons',
     isDefault: true
+  },
+  { 
+    key: '2fa', 
+    label: '2FA', 
+    icon: Shield,
+    description: 'Two-factor authentication APIs (Send & Verify OTP)',
+    isDefault: true,
+    isSpecial: true // Special flag for 2FA to render differently
   }
 ]
 
@@ -174,7 +182,7 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
   ]
   
   const [apiConfigs, setApiConfigs] = useState(
-    DEFAULT_API_CONFIGS.reduce((acc, api) => ({
+    DEFAULT_API_CONFIGS.filter(api => api.key !== '2fa').reduce((acc, api) => ({
       ...acc,
       [api.key]: {
         url: '',
@@ -185,6 +193,26 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
       }
     }), {})
   )
+  
+  // 2FA specific state
+  const [twoFactorConfigs, setTwoFactorConfigs] = useState({
+    send_otp: {
+      url: '',
+      method: 'POST',
+      headers: [{ key: '', value: '' }],
+      params: [{ key: '', value: '' }],
+      body: '{\n  "phone": "{{phone_number}}"\n}'
+    },
+    verify_otp: {
+      url: '',
+      method: 'POST',
+      headers: [{ key: '', value: '' }],
+      params: [{ key: '', value: '' }],
+      body: '{\n  "phone": "{{phone_number}}",\n  "otp": "{{otp_code}}"\n}'
+    }
+  })
+  const [curlTarget, setCurlTarget] = useState(null) // For 2FA: 'send_otp' or 'verify_otp'
+  
   const [showCurlModal, setShowCurlModal] = useState(false)
   const [curlInput, setCurlInput] = useState('')
   const [parseError, setParseError] = useState('')
@@ -238,6 +266,39 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
     const newParams = [...currentConfig.params]
     newParams[index][field] = value
     updateConfig('params', newParams)
+  }
+
+  // 2FA Config helpers
+  const update2FAConfig = (configType, field, value) => {
+    setTwoFactorConfigs(prev => ({
+      ...prev,
+      [configType]: { ...prev[configType], [field]: value }
+    }))
+  }
+
+  const add2FAHeader = (configType) => {
+    setTwoFactorConfigs(prev => ({
+      ...prev,
+      [configType]: { ...prev[configType], headers: [...prev[configType].headers, { key: '', value: '' }] }
+    }))
+  }
+
+  const remove2FAHeader = (configType, index) => {
+    if (twoFactorConfigs[configType].headers.length > 1) {
+      setTwoFactorConfigs(prev => ({
+        ...prev,
+        [configType]: { ...prev[configType], headers: prev[configType].headers.filter((_, i) => i !== index) }
+      }))
+    }
+  }
+
+  const update2FAHeader = (configType, index, field, value) => {
+    const newHeaders = [...twoFactorConfigs[configType].headers]
+    newHeaders[index][field] = value
+    setTwoFactorConfigs(prev => ({
+      ...prev,
+      [configType]: { ...prev[configType], headers: newHeaders }
+    }))
   }
 
   const goToNextApi = () => {
@@ -334,12 +395,13 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
       // Call the complete setup API
       const response = await apiService.completeSetup({
         brandData,
-        apiConfigs
+        apiConfigs,
+        twoFactorConfigs
       })
 
       if (response.success) {
         console.log('Setup completed:', response.data)
-        onNext({ brandData, apiConfigs, setupResult: response.data })
+        onNext({ brandData, apiConfigs, twoFactorConfigs, setupResult: response.data })
       } else {
         setError(response.error || 'Failed to complete setup')
       }
@@ -371,24 +433,46 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
         return
       }
 
-      // Apply parsed config to current API
-      setApiConfigs(prev => ({
-        ...prev,
-        [currentApi.key]: {
-          url: parsed.url,
-          method: parsed.method,
-          headers: parsed.headers,
-          params: parsed.params,
-          body: parsed.body
-        }
-      }))
+      // Check if this is for 2FA APIs
+      if (curlTarget) {
+        setTwoFactorConfigs(prev => ({
+          ...prev,
+          [curlTarget]: {
+            url: parsed.url,
+            method: parsed.method,
+            headers: parsed.headers,
+            params: parsed.params,
+            body: parsed.body
+          }
+        }))
+      } else {
+        // Apply parsed config to current API
+        setApiConfigs(prev => ({
+          ...prev,
+          [currentApi.key]: {
+            url: parsed.url,
+            method: parsed.method,
+            headers: parsed.headers,
+            params: parsed.params,
+            body: parsed.body
+          }
+        }))
+      }
 
       // Close modal and reset
       setShowCurlModal(false)
       setCurlInput('')
+      setCurlTarget(null)
     } catch (err) {
       setParseError('Failed to parse curl command. Please check the format.')
     }
+  }
+
+  const openCurlModal = (target = null) => {
+    setCurlTarget(target)
+    setCurlInput('')
+    setParseError('')
+    setShowCurlModal(true)
   }
 
   const handlePasteFromClipboard = async () => {
@@ -489,188 +573,424 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
             </button>
           </div>
 
-          {/* Current API Form */}
-          <div className="bg-[#2a2a4a] rounded-xl p-6 space-y-5">
-            {/* API Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-gray-700">
-              <div className="flex items-center gap-3">
-                {React.createElement(currentApi.icon, { className: `w-6 h-6 ${currentApi.isDefault ? 'text-purple-400' : 'text-emerald-400'}` })}
+          {/* Current API Form - Conditional for 2FA or Regular */}
+          {currentApi?.key === '2fa' ? (
+            /* 2FA Form - Shows Both Send OTP and Verify OTP */
+            <div className="space-y-4">
+              {/* 2FA Header */}
+              <div className="flex items-center gap-3 p-4 bg-[#2a2a4a] rounded-xl border border-purple-500/30">
+                <Shield className="w-6 h-6 text-purple-400" />
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-white font-semibold">{currentApi.label}</h3>
-                    {!currentApi.isDefault && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                        Custom
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-gray-500 text-xs">{currentApi.description}</p>
+                  <h3 className="text-white font-semibold">Two-Factor Authentication</h3>
+                  <p className="text-gray-500 text-xs">Configure Send OTP and Verify OTP APIs on the same page</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {/* Edit/Delete for Custom APIs */}
-                {!currentApi.isDefault && (
-                  <>
+              
+              {/* Two API Forms Side by Side */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Send OTP Form */}
+                <div className="bg-[#2a2a4a] rounded-xl p-5 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-gray-700">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-blue-500/20">
+                        <Send className="w-4 h-4 text-blue-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-white font-semibold text-sm">Send OTP</h3>
+                        <p className="text-gray-500 text-xs">API to send OTP to user</p>
+                      </div>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => handleEditCustomApi(currentApi)}
-                      className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-all"
-                      title="Edit API name"
+                      onClick={() => openCurlModal('send_otp')}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs"
                     >
-                      <Edit3 className="w-4 h-4" />
+                      <Terminal className="w-3 h-3" />
+                      cURL
                     </button>
+                  </div>
+                  
+                  {/* URL & Method */}
+                  <div className="flex gap-2">
+                    <div className="w-24">
+                      <label className="block text-gray-400 text-xs mb-1">Method</label>
+                      <select
+                        value={twoFactorConfigs.send_otp.method}
+                        onChange={(e) => update2FAConfig('send_otp', 'method', e.target.value)}
+                        className="w-full px-2 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white focus:outline-none focus:border-purple-500 text-xs"
+                      >
+                        {METHODS.map(method => (
+                          <option key={method} value={method}>{method}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-gray-400 text-xs mb-1">URL</label>
+                      <div className="flex items-center bg-[#1e1e3f] border border-gray-700 rounded-lg overflow-hidden">
+                        <span className={`px-2 py-2 text-xs font-semibold text-white ${METHOD_COLORS[twoFactorConfigs.send_otp.method]}`}>
+                          {twoFactorConfigs.send_otp.method}
+                        </span>
+                        <input
+                          type="text"
+                          value={twoFactorConfigs.send_otp.url}
+                          onChange={(e) => update2FAConfig('send_otp', 'url', e.target.value)}
+                          placeholder="https://api.example.com/otp/send"
+                          className="flex-1 px-2 py-2 bg-transparent text-white placeholder-gray-500 focus:outline-none text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Headers */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-gray-400 text-xs">Headers</label>
+                      <button type="button" onClick={() => add2FAHeader('send_otp')} className="text-xs text-purple-400 hover:text-purple-300">
+                        + Add
+                      </button>
+                    </div>
+                    <div className="space-y-1">
+                      {twoFactorConfigs.send_otp.headers.map((header, index) => (
+                        <div key={index} className="flex gap-1">
+                          <input
+                            type="text"
+                            value={header.key}
+                            onChange={(e) => update2FAHeader('send_otp', index, 'key', e.target.value)}
+                            placeholder="Key"
+                            className="flex-1 px-2 py-1.5 bg-[#1e1e3f] border border-gray-700 rounded text-white placeholder-gray-500 text-xs"
+                          />
+                          <input
+                            type="text"
+                            value={header.value}
+                            onChange={(e) => update2FAHeader('send_otp', index, 'value', e.target.value)}
+                            placeholder="Value"
+                            className="flex-1 px-2 py-1.5 bg-[#1e1e3f] border border-gray-700 rounded text-white placeholder-gray-500 text-xs"
+                          />
+                          <button type="button" onClick={() => remove2FAHeader('send_otp', index)} className="p-1 text-gray-500 hover:text-red-400">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Body */}
+                  {(twoFactorConfigs.send_otp.method === 'POST' || twoFactorConfigs.send_otp.method === 'PUT') && (
+                    <div>
+                      <label className="block text-gray-400 text-xs mb-1">Request Body</label>
+                      <textarea
+                        value={twoFactorConfigs.send_otp.body}
+                        onChange={(e) => update2FAConfig('send_otp', 'body', e.target.value)}
+                        placeholder='{"phone": "{{phone_number}}"}'
+                        rows={3}
+                        className="w-full px-2 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 text-xs font-mono resize-none"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Verify OTP Form */}
+                <div className="bg-[#2a2a4a] rounded-xl p-5 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-gray-700">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-green-500/20">
+                        <CheckCircle className="w-4 h-4 text-green-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-white font-semibold text-sm">Verify OTP</h3>
+                        <p className="text-gray-500 text-xs">API to verify OTP code</p>
+                      </div>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => handleDeleteCustomApi(currentApi.key)}
-                      className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                      title="Delete API"
+                      onClick={() => openCurlModal('verify_otp')}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Terminal className="w-3 h-3" />
+                      cURL
                     </button>
-                    <div className="w-px h-6 bg-gray-700 mx-1"></div>
-                  </>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setShowCurlModal(true)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 text-emerald-400 hover:from-emerald-500/30 hover:to-teal-500/30 hover:border-emerald-400 transition-all group"
-                >
-                  <Terminal className="w-4 h-4" />
-                  <span className="text-sm font-medium">Import from cURL</span>
-                  <Sparkles className="w-3 h-3 opacity-60 group-hover:opacity-100" />
-                </button>
+                  </div>
+                  
+                  {/* URL & Method */}
+                  <div className="flex gap-2">
+                    <div className="w-24">
+                      <label className="block text-gray-400 text-xs mb-1">Method</label>
+                      <select
+                        value={twoFactorConfigs.verify_otp.method}
+                        onChange={(e) => update2FAConfig('verify_otp', 'method', e.target.value)}
+                        className="w-full px-2 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white focus:outline-none focus:border-purple-500 text-xs"
+                      >
+                        {METHODS.map(method => (
+                          <option key={method} value={method}>{method}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-gray-400 text-xs mb-1">URL</label>
+                      <div className="flex items-center bg-[#1e1e3f] border border-gray-700 rounded-lg overflow-hidden">
+                        <span className={`px-2 py-2 text-xs font-semibold text-white ${METHOD_COLORS[twoFactorConfigs.verify_otp.method]}`}>
+                          {twoFactorConfigs.verify_otp.method}
+                        </span>
+                        <input
+                          type="text"
+                          value={twoFactorConfigs.verify_otp.url}
+                          onChange={(e) => update2FAConfig('verify_otp', 'url', e.target.value)}
+                          placeholder="https://api.example.com/otp/verify"
+                          className="flex-1 px-2 py-2 bg-transparent text-white placeholder-gray-500 focus:outline-none text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Headers */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-gray-400 text-xs">Headers</label>
+                      <button type="button" onClick={() => add2FAHeader('verify_otp')} className="text-xs text-purple-400 hover:text-purple-300">
+                        + Add
+                      </button>
+                    </div>
+                    <div className="space-y-1">
+                      {twoFactorConfigs.verify_otp.headers.map((header, index) => (
+                        <div key={index} className="flex gap-1">
+                          <input
+                            type="text"
+                            value={header.key}
+                            onChange={(e) => update2FAHeader('verify_otp', index, 'key', e.target.value)}
+                            placeholder="Key"
+                            className="flex-1 px-2 py-1.5 bg-[#1e1e3f] border border-gray-700 rounded text-white placeholder-gray-500 text-xs"
+                          />
+                          <input
+                            type="text"
+                            value={header.value}
+                            onChange={(e) => update2FAHeader('verify_otp', index, 'value', e.target.value)}
+                            placeholder="Value"
+                            className="flex-1 px-2 py-1.5 bg-[#1e1e3f] border border-gray-700 rounded text-white placeholder-gray-500 text-xs"
+                          />
+                          <button type="button" onClick={() => remove2FAHeader('verify_otp', index)} className="p-1 text-gray-500 hover:text-red-400">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Body */}
+                  {(twoFactorConfigs.verify_otp.method === 'POST' || twoFactorConfigs.verify_otp.method === 'PUT') && (
+                    <div>
+                      <label className="block text-gray-400 text-xs mb-1">Request Body</label>
+                      <textarea
+                        value={twoFactorConfigs.verify_otp.body}
+                        onChange={(e) => update2FAConfig('verify_otp', 'body', e.target.value)}
+                        placeholder='{"phone": "{{phone_number}}", "otp": "{{otp_code}}"}'
+                        rows={3}
+                        className="w-full px-2 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 text-xs font-mono resize-none"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Available Variables Info */}
+              <div className="p-3 bg-[#2a2a4a]/50 rounded-xl border border-gray-700/50">
+                <div className="flex items-start gap-2">
+                  <Shield className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-gray-300 text-xs font-medium mb-1">Available Variables</p>
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <code className="px-2 py-0.5 bg-[#1e1e3f] text-purple-300 rounded">{'{{phone_number}}'}</code>
+                      <code className="px-2 py-0.5 bg-[#1e1e3f] text-purple-300 rounded">{'{{email}}'}</code>
+                      <code className="px-2 py-0.5 bg-[#1e1e3f] text-purple-300 rounded">{'{{otp_code}}'}</code>
+                      <code className="px-2 py-0.5 bg-[#1e1e3f] text-purple-300 rounded">{'{{user_id}}'}</code>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-
-            {/* URL & Method */}
-            <div className="flex gap-3">
-              <div className="w-32">
-                <label className="block text-gray-400 text-xs mb-2">Method</label>
-                <select
-                  value={currentConfig.method}
-                  onChange={(e) => updateConfig('method', e.target.value)}
-                  className="w-full px-3 py-2.5 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white focus:outline-none focus:border-purple-500 text-sm"
-                >
-                  {METHODS.map(method => (
-                    <option key={method} value={method}>{method}</option>
-                  ))}
-                </select>
+          ) : (
+            /* Regular API Form */
+            <div className="bg-[#2a2a4a] rounded-xl p-6 space-y-5">
+              {/* API Header */}
+              <div className="flex items-center justify-between pb-4 border-b border-gray-700">
+                <div className="flex items-center gap-3">
+                  {React.createElement(currentApi.icon, { className: `w-6 h-6 ${currentApi.isDefault ? 'text-purple-400' : 'text-emerald-400'}` })}
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-white font-semibold">{currentApi.label}</h3>
+                      {!currentApi.isDefault && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          Custom
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-gray-500 text-xs">{currentApi.description}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {/* Edit/Delete for Custom APIs */}
+                  {!currentApi.isDefault && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleEditCustomApi(currentApi)}
+                        className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-all"
+                        title="Edit API name"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCustomApi(currentApi.key)}
+                        className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                        title="Delete API"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                      <div className="w-px h-6 bg-gray-700 mx-1"></div>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => openCurlModal()}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 text-emerald-400 hover:from-emerald-500/30 hover:to-teal-500/30 hover:border-emerald-400 transition-all group"
+                  >
+                    <Terminal className="w-4 h-4" />
+                    <span className="text-sm font-medium">Import from cURL</span>
+                    <Sparkles className="w-3 h-3 opacity-60 group-hover:opacity-100" />
+                  </button>
+                </div>
               </div>
-              <div className="flex-1">
-                <label className="block text-gray-400 text-xs mb-2">URL</label>
-                <div className="flex items-center bg-[#1e1e3f] border border-gray-700 rounded-lg overflow-hidden focus-within:border-purple-500">
-                  <span className={`px-3 py-2.5 text-xs font-semibold text-white ${METHOD_COLORS[currentConfig.method]}`}>
-                    {currentConfig.method}
-                  </span>
-                  <input
-                    type="text"
-                    value={currentConfig.url}
-                    onChange={(e) => updateConfig('url', e.target.value)}
-                    placeholder="https://api.example.com/endpoint"
-                    className="flex-1 px-3 py-2.5 bg-transparent text-white placeholder-gray-500 focus:outline-none text-sm"
+
+              {/* URL & Method */}
+              <div className="flex gap-3">
+                <div className="w-32">
+                  <label className="block text-gray-400 text-xs mb-2">Method</label>
+                  <select
+                    value={currentConfig.method}
+                    onChange={(e) => updateConfig('method', e.target.value)}
+                    className="w-full px-3 py-2.5 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white focus:outline-none focus:border-purple-500 text-sm"
+                  >
+                    {METHODS.map(method => (
+                      <option key={method} value={method}>{method}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-gray-400 text-xs mb-2">URL</label>
+                  <div className="flex items-center bg-[#1e1e3f] border border-gray-700 rounded-lg overflow-hidden focus-within:border-purple-500">
+                    <span className={`px-3 py-2.5 text-xs font-semibold text-white ${METHOD_COLORS[currentConfig.method]}`}>
+                      {currentConfig.method}
+                    </span>
+                    <input
+                      type="text"
+                      value={currentConfig.url}
+                      onChange={(e) => updateConfig('url', e.target.value)}
+                      placeholder="https://api.example.com/endpoint"
+                      className="flex-1 px-3 py-2.5 bg-transparent text-white placeholder-gray-500 focus:outline-none text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Headers */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-gray-400 text-xs">Headers</label>
+                  <button
+                    type="button"
+                    onClick={addHeader}
+                    className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300"
+                  >
+                    <Plus className="w-3 h-3" /> Add Header
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {currentConfig.headers.map((header, index) => (
+                    <div key={index} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={header.key}
+                        onChange={(e) => updateHeader(index, 'key', e.target.value)}
+                        placeholder="Key (e.g., Authorization)"
+                        className="flex-1 px-3 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-sm"
+                      />
+                      <input
+                        type="text"
+                        value={header.value}
+                        onChange={(e) => updateHeader(index, 'value', e.target.value)}
+                        placeholder="Value (e.g., Bearer token)"
+                        className="flex-1 px-3 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeHeader(index)}
+                        disabled={currentConfig.headers.length === 1}
+                        className="p-2 text-gray-500 hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Params */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-gray-400 text-xs">Query Parameters</label>
+                  <button
+                    type="button"
+                    onClick={addParam}
+                    className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300"
+                  >
+                    <Plus className="w-3 h-3" /> Add Param
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {currentConfig.params.map((param, index) => (
+                    <div key={index} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={param.key}
+                        onChange={(e) => updateParam(index, 'key', e.target.value)}
+                        placeholder="Key (e.g., search)"
+                        className="flex-1 px-3 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-sm"
+                      />
+                      <input
+                        type="text"
+                        value={param.value}
+                        onChange={(e) => updateParam(index, 'value', e.target.value)}
+                        placeholder="Value (e.g., {{query}})"
+                        className="flex-1 px-3 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeParam(index)}
+                        disabled={currentConfig.params.length === 1}
+                        className="p-2 text-gray-500 hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Body */}
+              {(currentConfig.method === 'POST' || currentConfig.method === 'PUT' || currentConfig.method === 'PATCH') && (
+                <div>
+                  <label className="block text-gray-400 text-xs mb-2">Request Body (JSON)</label>
+                  <textarea
+                    value={currentConfig.body}
+                    onChange={(e) => updateConfig('body', e.target.value)}
+                    placeholder='{"key": "value"}'
+                    rows={5}
+                    className="w-full px-3 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-sm font-mono resize-none"
                   />
                 </div>
-              </div>
+              )}
             </div>
-
-            {/* Headers */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-gray-400 text-xs">Headers</label>
-                <button
-                  type="button"
-                  onClick={addHeader}
-                  className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300"
-                >
-                  <Plus className="w-3 h-3" /> Add Header
-                </button>
-              </div>
-              <div className="space-y-2">
-                {currentConfig.headers.map((header, index) => (
-                  <div key={index} className="flex gap-2">
-                    <input
-                      type="text"
-                      value={header.key}
-                      onChange={(e) => updateHeader(index, 'key', e.target.value)}
-                      placeholder="Key (e.g., Authorization)"
-                      className="flex-1 px-3 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-sm"
-                    />
-                    <input
-                      type="text"
-                      value={header.value}
-                      onChange={(e) => updateHeader(index, 'value', e.target.value)}
-                      placeholder="Value (e.g., Bearer token)"
-                      className="flex-1 px-3 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeHeader(index)}
-                      disabled={currentConfig.headers.length === 1}
-                      className="p-2 text-gray-500 hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Params */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-gray-400 text-xs">Query Parameters</label>
-                <button
-                  type="button"
-                  onClick={addParam}
-                  className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300"
-                >
-                  <Plus className="w-3 h-3" /> Add Param
-                </button>
-              </div>
-              <div className="space-y-2">
-                {currentConfig.params.map((param, index) => (
-                  <div key={index} className="flex gap-2">
-                    <input
-                      type="text"
-                      value={param.key}
-                      onChange={(e) => updateParam(index, 'key', e.target.value)}
-                      placeholder="Key (e.g., search)"
-                      className="flex-1 px-3 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-sm"
-                    />
-                    <input
-                      type="text"
-                      value={param.value}
-                      onChange={(e) => updateParam(index, 'value', e.target.value)}
-                      placeholder="Value (e.g., {{query}})"
-                      className="flex-1 px-3 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeParam(index)}
-                      disabled={currentConfig.params.length === 1}
-                      className="p-2 text-gray-500 hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Body */}
-            {(currentConfig.method === 'POST' || currentConfig.method === 'PUT' || currentConfig.method === 'PATCH') && (
-              <div>
-                <label className="block text-gray-400 text-xs mb-2">Request Body (JSON)</label>
-                <textarea
-                  value={currentConfig.body}
-                  onChange={(e) => updateConfig('body', e.target.value)}
-                  placeholder='{"key": "value"}'
-                  rows={5}
-                  className="w-full px-3 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-sm font-mono resize-none"
-                />
-              </div>
-            )}
-          </div>
+          )}
 
           {/* Navigation within APIs */}
           <div className="flex items-center justify-between mt-4 text-sm">
