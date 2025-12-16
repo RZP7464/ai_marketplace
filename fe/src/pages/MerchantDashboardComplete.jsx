@@ -121,29 +121,30 @@ function MerchantDashboardComplete() {
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Merchant Info Card */}
-            <div className="bg-white/5 backdrop-blur-md rounded-lg p-6 border border-white/10">
-              <h3 className="text-lg font-semibold text-white mb-4">Merchant Info</h3>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-gray-400 text-sm">ID</p>
-                  <p className="text-white font-mono">{merchant.id}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-sm">Email</p>
-                  <p className="text-white">{merchant.email}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-sm">Type</p>
-                  <p className="text-white capitalize">{merchant.type}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-sm">Created</p>
-                  <p className="text-white">{new Date(merchant.createdAt).toLocaleDateString()}</p>
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Merchant Info Card */}
+              <div className="bg-white/5 backdrop-blur-md rounded-lg p-6 border border-white/10">
+                <h3 className="text-lg font-semibold text-white mb-4">Merchant Info</h3>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-gray-400 text-sm">ID</p>
+                    <p className="text-white font-mono">{merchant.id}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Email</p>
+                    <p className="text-white">{merchant.email}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Type</p>
+                    <p className="text-white capitalize">{merchant.type}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Created</p>
+                    <p className="text-white">{new Date(merchant.createdAt).toLocaleDateString()}</p>
+                  </div>
                 </div>
               </div>
-            </div>
 
             {/* Brand Info Card */}
             <div className="bg-white/5 backdrop-blur-md rounded-lg p-6 border border-white/10">
@@ -207,6 +208,124 @@ function MerchantDashboardComplete() {
               </div>
             </div>
           </div>
+
+          {/* Shareable Chat URL Section */}
+          <div className="mt-6">
+            <div className="bg-gradient-to-r from-green-500/10 to-teal-500/10 border border-green-500/30 rounded-lg p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="text-xl font-semibold text-white mb-2 flex items-center">
+                    <span className="mr-2">💬</span> Share Your AI Chat
+                  </h3>
+                  <p className="text-gray-400 text-sm">
+                    Share this link with your customers to let them chat with your AI-powered assistant
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {/* Public Chat URL */}
+                <div>
+                  <label className="block text-gray-400 text-xs mb-2 uppercase tracking-wide">Public Chat URL</label>
+                  <div className="flex gap-2">
+                    <div className="flex-1 bg-black/30 rounded-lg p-4 border border-white/10">
+                      <p className="text-green-300 font-mono text-sm break-all">
+                        {window.location.origin}/chat/{merchant.slug}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/chat/${merchant.slug}`);
+                        const btn = event.target.closest('button');
+                        const originalText = btn.innerHTML;
+                        btn.innerHTML = '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> Copied!';
+                        setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+                      }}
+                      className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      Copy Link
+                    </button>
+                  </div>
+                </div>
+
+                {/* Embed Code */}
+                <div>
+                  <label className="block text-gray-400 text-xs mb-2 uppercase tracking-wide">Embed Code (for your website)</label>
+                  <div className="flex gap-2">
+                    <div className="flex-1 bg-black/30 rounded-lg p-4 border border-white/10 overflow-x-auto">
+                      <code className="text-purple-300 font-mono text-xs break-all whitespace-pre-wrap">
+                        {`<iframe src="${window.location.origin}/chat/${merchant.slug}" width="100%" height="600" frameborder="0"></iframe>`}
+                      </code>
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`<iframe src="${window.location.origin}/chat/${merchant.slug}" width="100%" height="600" frameborder="0"></iframe>`);
+                        const btn = event.target.closest('button');
+                        const originalText = btn.innerHTML;
+                        btn.innerHTML = '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> Copied!';
+                        setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+                      }}
+                      className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                      </svg>
+                      Copy Code
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quick Actions */}
+                <div className="flex gap-3 pt-2">
+                  <a
+                    href={`/chat/${merchant.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    Preview Chat
+                  </a>
+                  <button
+                    onClick={() => {
+                      const qrData = `${window.location.origin}/chat/${merchant.slug}`;
+                      window.open(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}`, '_blank');
+                    }}
+                    className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                    </svg>
+                    Generate QR Code
+                  </button>
+                </div>
+              </div>
+
+              {/* Stats Preview */}
+              <div className="mt-4 pt-4 border-t border-white/10">
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <p className="text-2xl font-bold text-green-400">{merchant.apis?.length || 0}</p>
+                    <p className="text-gray-400 text-xs">API Tools</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-blue-400">Active</p>
+                    <p className="text-gray-400 text-xs">Status</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-purple-400">AI</p>
+                    <p className="text-gray-400 text-xs">Powered</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          </>
         )}
 
         {activeTab === 'brand' && (

@@ -4,6 +4,52 @@ const { authenticateToken } = require("../middleware/auth");
 
 const router = express.Router();
 
+// GET /api/merchant/public/:slug - Get merchant public data (no auth required)
+router.get("/public/:slug", async (req, res) => {
+  try {
+    const { slug } = req.params;
+
+    const merchant = await prisma.merchant.findUnique({
+      where: { slug },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        displayName: true,
+        logo: true,
+        tagline: true,
+        welcomeMessage: true,
+        categories: true,
+        dynamicSettings: {
+          select: {
+            primaryColor: true,
+            secondaryColor: true,
+            accentColor: true
+          }
+        }
+      }
+    });
+
+    if (!merchant) {
+      return res.status(404).json({
+        success: false,
+        error: "Merchant not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      data: merchant
+    });
+  } catch (error) {
+    console.error("Get public merchant error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Internal server error"
+    });
+  }
+});
+
 // GET /api/merchant - Get current merchant profile with all data
 router.get("/", authenticateToken, async (req, res) => {
   try {

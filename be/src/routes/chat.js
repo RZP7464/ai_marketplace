@@ -6,6 +6,94 @@ const aiService = require('../services/aiService');
 const router = express.Router();
 
 /**
+ * Public chat endpoint - No authentication required
+ * POST /api/chat/public/:merchantSlug
+ * 
+ * Body: { message: string, sessionId: string }
+ */
+router.post('/public/:merchantSlug', async (req, res) => {
+  try {
+    const { merchantSlug } = req.params;
+    const { message, sessionId } = req.body;
+
+    if (!message) {
+      return res.status(400).json({
+        success: false,
+        error: 'Message is required'
+      });
+    }
+
+    // Find merchant by slug
+    const merchant = await prisma.merchant.findUnique({
+      where: { slug: merchantSlug }
+    });
+
+    if (!merchant) {
+      return res.status(404).json({
+        success: false,
+        error: 'Merchant not found'
+      });
+    }
+
+    // Find or create session
+    let session;
+    if (sessionId) {
+      session = await prisma.session.findFirst({
+        where: {
+          id: sessionId,
+          merchantId: merchant.id
+        }
+      });
+    }
+
+    if (!session) {
+      session = await prisma.session.create({
+        data: {
+          id: sessionId || undefined,
+          merchantId: merchant.id
+        }
+      });
+    }
+
+    // Save user message
+    await prisma.message.create({
+      data: {
+        sessionId: session.id,
+        content: message,
+        sender: 'user'
+      }
+    });
+
+    // Get AI response using merchant's AI service
+    const aiResponse = await aiService.chat(merchant.id, session.id, message);
+
+    // Save assistant message
+    await prisma.message.create({
+      data: {
+        sessionId: session.id,
+        content: aiResponse.message,
+        sender: 'assistant',
+        metadata: aiResponse.metadata || {}
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        response: aiResponse.message,
+        sessionId: session.id
+      }
+    });
+  } catch (error) {
+    console.error('Public chat error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Internal server error'
+    });
+  }
+});
+
+/**
  * Create a new chat session for a merchant
  * POST /api/chat/sessions
  * 
