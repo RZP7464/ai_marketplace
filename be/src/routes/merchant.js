@@ -146,16 +146,35 @@ router.put("/settings", authenticateToken, async (req, res) => {
 });
 
 // POST /api/merchant/complete-setup - Complete full merchant setup (brand + APIs)
-router.post("/complete-setup", authenticateToken, async (req, res) => {
+// No auth required for first-time setup
+router.post("/complete-setup", async (req, res) => {
   try {
-    const merchantId = req.user.merchantId;
-    const { brandData, apiConfigs } = req.body;
+    const { brandData, apiConfigs, merchantId, email } = req.body;
+    
+    // Get merchantId from request body or try to find by email
+    let finalMerchantId = merchantId;
+    
+    if (!finalMerchantId && email) {
+      const merchant = await prisma.merchant.findUnique({
+        where: { email }
+      });
+      if (merchant) {
+        finalMerchantId = merchant.id;
+      }
+    }
+    
+    if (!finalMerchantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'merchantId or email is required'
+      });
+    }
 
     // Start a transaction to update everything atomically
     const result = await prisma.$transaction(async (tx) => {
       // 1. Update merchant brand data
       const merchant = await tx.merchant.update({
-        where: { id: merchantId },
+        where: { id: finalMerchantId },
         data: {
           displayName: brandData.display_name,
           logo: typeof brandData.display_logo === 'string' ? brandData.display_logo : null,
@@ -167,9 +186,9 @@ router.post("/complete-setup", authenticateToken, async (req, res) => {
 
       // 2. Upsert dynamic settings for colors
       const dynamicSettings = await tx.dynamicSettings.upsert({
-        where: { merchantId },
+        where: { merchantId: finalMerchantId },
         create: {
-          merchantId,
+          merchantId: finalMerchantId,
           primaryColor: brandData.primary_color,
           secondaryColor: brandData.secondary_color,
           accentColor: brandData.accent_color,
@@ -183,13 +202,13 @@ router.post("/complete-setup", authenticateToken, async (req, res) => {
 
       // 3. Create or get default credential for APIs
       let credential = await tx.credential.findFirst({
-        where: { merchantId },
+        where: { merchantId: finalMerchantId },
       });
 
       if (!credential) {
         credential = await tx.credential.create({
           data: {
-            merchantId,
+            merchantId: finalMerchantId,
             authType: "none",
           },
         });
@@ -211,6 +230,8 @@ router.post("/complete-setup", authenticateToken, async (req, res) => {
 
         // Build payload and config from the form data
         const payload = {
+          name: apiType, // Tool name for MCP
+          description: `${apiType.charAt(0).toUpperCase() + apiType.slice(1)} functionality`,
           url: config.url,
           method: config.method,
           headers: config.headers.filter((h) => h.key && h.value),
@@ -225,7 +246,7 @@ router.post("/complete-setup", authenticateToken, async (req, res) => {
 
         // Upsert API configuration
         const existingApi = await tx.api.findFirst({
-          where: { merchantId, apiType },
+          where: { merchantId: finalMerchantId, apiType },
         });
 
         let savedApi;
@@ -244,7 +265,7 @@ router.post("/complete-setup", authenticateToken, async (req, res) => {
               apiType,
               payload,
               config: apiConfig,
-              merchantId,
+              merchantId: finalMerchantId,
               authId: credential.id,
             },
           });
