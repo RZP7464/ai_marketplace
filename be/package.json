@@ -6,12 +6,12 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:generate": "node node_modules/prisma/build/index.js generate",
+    "prisma:migrate": "node node_modules/prisma/build/index.js migrate dev",
+    "prisma:studio": "node node_modules/prisma/build/index.js studio"
   },
   "dependencies": {
-    "@prisma/client": "^7.1.0",
+    "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -20,6 +20,6 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.4",
-    "prisma": "^7.1.0"
+    "prisma": "^5.22.0"
   }
 }

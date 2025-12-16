@@ -1,25 +1,32 @@
 import React, { useState } from 'react'
-import { Store, Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import { Store, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import apiService from '../services/api'
 
 const MerchantLogin = ({ onLogin }) => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
+    setError('')
     
-    // Simulate API call
-    setTimeout(() => {
-      if (email && password) {
-        onLogin({ email })
-      } else {
-        alert('Please enter email and password')
+    try {
+      const response = await apiService.login(email, password)
+      
+      if (response.success) {
+        // Call onLogin callback with user data
+        onLogin(response.data.user)
       }
+    } catch (err) {
+      setError(err.message || 'Login failed. Please check your credentials.')
+      console.error('Login error:', err)
+    } finally {
       setIsLoading(false)
-    }, 1000)
+    }
   }
 
   return (
@@ -42,6 +49,17 @@ const MerchantLogin = ({ onLogin }) => {
 
           {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Error Message */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl p-4 flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium">Login Failed</p>
+                  <p className="text-sm mt-1">{error}</p>
+                </div>
+              </div>
+            )}
+
             {/* Email Input */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
