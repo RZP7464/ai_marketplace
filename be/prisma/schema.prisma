@@ -15,6 +15,15 @@ model Merchant {
   id              Int              @id @default(autoincrement())
   slug            String           @unique
   type            String           @default("general")
+  
+  // Merchant profile fields (signup page)
+  displayName     String?          @map("display_name")
+  logo            String?          // Logo URL
+  description     String?          // Business description
+  website         String?          // Merchant website URL
+  phone           String?          // Contact phone
+  address         String?          // Business address
+  
   apis            Api[]
   chats           Chat[]
   credentials     Credential[]
