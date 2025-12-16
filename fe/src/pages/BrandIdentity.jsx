@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react'
-import { Upload, X, ChevronRight, Image, Plus, Palette, Send, ShoppingCart, MessageSquare, Eye, Monitor, Smartphone } from 'lucide-react'
+import React, { useState, useRef, useEffect } from 'react'
+import { Upload, X, ChevronRight, Image, Plus, Palette, Send, ShoppingCart, MessageSquare, Eye, Monitor, Smartphone, Bot, EyeOff } from 'lucide-react'
 
 const TRENDING_CATEGORIES = [
   '👗 Fashion & Apparel',
@@ -29,8 +29,8 @@ const PRESET_COLORS = [
   { name: 'Indigo', primary: '#6366F1', secondary: '#818CF8' },
 ]
 
-function BrandIdentity({ onNext, onBack }) {
-  const [formData, setFormData] = useState({
+function BrandIdentity({ onNext, onBack, isSettingsMode = false, initialData = null }) {
+  const [formData, setFormData] = useState(initialData || {
     display_logo: null,
     display_name: '',
     display_tagline: '',
@@ -38,15 +38,23 @@ function BrandIdentity({ onNext, onBack }) {
     display_category: [],
     primary_color: '#8B5CF6',
     secondary_color: '#A78BFA',
-    accent_color: '#F472B6'
+    accent_color: '#F472B6',
+    base_prompt: ''
   })
-  const [logoPreview, setLogoPreview] = useState(null)
+  const [logoPreview, setLogoPreview] = useState(initialData?.logoPreview || null)
   const [errors, setErrors] = useState({})
   const [customCategory, setCustomCategory] = useState('')
   const [showCustomInput, setShowCustomInput] = useState(false)
   const [previewMode, setPreviewMode] = useState('web') // 'web' or 'mobile'
   const fileInputRef = useRef(null)
   const customInputRef = useRef(null)
+
+  // In settings mode, notify parent of changes
+  useEffect(() => {
+    if (isSettingsMode && onNext) {
+      onNext({ ...formData, logoPreview })
+    }
+  }, [formData, logoPreview, isSettingsMode])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -148,7 +156,7 @@ function BrandIdentity({ onNext, onBack }) {
 
   // Render the preview panel - matches actual chatbot structure
   const renderPreviewPanel = () => (
-    <div className="sticky top-8">
+    <div>
       {/* Header with Toggle */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
@@ -526,47 +534,58 @@ function BrandIdentity({ onNext, onBack }) {
   )
 
   return (
-    <div className="min-h-screen bg-[#1a1a2e] flex items-center justify-center p-4 relative overflow-hidden">
+    <div className={`${isSettingsMode ? 'h-[calc(100vh-120px)]' : 'h-screen'} bg-[#1a1a2e] flex items-start justify-center p-4 relative overflow-hidden`}>
       {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
-      </div>
+      {!isSettingsMode && (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
+        </div>
+      )}
 
       {/* Main Container - Two Column Layout */}
-      <div className="relative w-full max-w-6xl flex gap-8">
-        {/* Left Side - Form */}
-        <div className="flex-1 max-w-2xl bg-[#252542] rounded-3xl shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-center gap-2 py-4 border-b border-white/5">
-          <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-          </svg>
-          <span className="text-white font-semibold tracking-wider text-sm">AGENTIC PLATFORM</span>
-        </div>
+      <div className="relative w-full max-w-6xl flex gap-8 h-full">
+        {/* Left Side - Form (Scrollable) */}
+        <div className={`flex-1 max-w-2xl overflow-y-auto scrollbar-dark ${isSettingsMode ? 'pr-2' : 'bg-[#252542] rounded-3xl shadow-2xl'}`}>
+        
+        {/* Header - Hide in settings mode */}
+        {!isSettingsMode && (
+          <div className="flex items-center justify-center gap-2 py-4 border-b border-white/5">
+            <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+            <span className="text-white font-semibold tracking-wider text-sm">AGENTIC PLATFORM</span>
+          </div>
+        )}
 
-        {/* Progress Indicator */}
-        <div className="px-8 pt-6">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-semibold">
-                1
+        {/* Progress Indicator - Hide in settings mode */}
+        {!isSettingsMode && (
+          <div className="px-8 pt-6">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-semibold">
+                  1
+                </div>
+                <span className="text-white text-sm font-medium">Brand Identity</span>
               </div>
-              <span className="text-white text-sm font-medium">Brand Identity</span>
-            </div>
-            <div className="flex-1 h-1 bg-gray-700 rounded mx-2">
-              <div className="h-full w-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded"></div>
-            </div>
-            <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 text-sm">
-              2
+              <div className="flex-1 h-1 bg-gray-700 rounded mx-2">
+                <div className="h-full w-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded"></div>
+              </div>
+              <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 text-sm">
+                2
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Form Content */}
-        <div className="p-8 bg-[#1e1e3f]">
-          <h2 className="text-2xl font-bold text-white mb-2">Brand Identity</h2>
-          <p className="text-gray-400 text-sm mb-8">Tell us about your brand to personalize your AI agent</p>
+        <div className={`${isSettingsMode ? 'p-6' : 'p-8'} bg-[#1e1e3f]`}>
+          {!isSettingsMode && (
+            <>
+              <h2 className="text-2xl font-bold text-white mb-2">Brand Identity</h2>
+              <p className="text-gray-400 text-sm mb-8">Tell us about your brand to personalize your AI agent</p>
+            </>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Logo Upload */}
@@ -684,6 +703,43 @@ function BrandIdentity({ onNext, onBack }) {
                 className="w-full px-4 py-3 bg-[#2a2a4a] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors resize-none"
               />
               <p className="text-gray-500 text-xs mt-1 text-right">{formData.display_message.length}/250</p>
+            </div>
+
+            {/* Base Prompt - Internal AI Configuration */}
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-2">
+                <Bot className="w-4 h-4 text-purple-400" />
+                <label className="text-gray-400 text-xs">
+                  Base Prompt <span className="text-gray-600">(AI Instructions)</span>
+                </label>
+              </div>
+              
+              {/* Info Banner */}
+              <div className="flex items-start gap-2 p-3 mb-3 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                <EyeOff className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-purple-300 text-xs font-medium">This is internal configuration only</p>
+                  <p className="text-gray-400 text-xs mt-0.5">
+                    The base prompt guides your AI assistant's behavior. It won't be shown to users or anywhere in the UI - it's purely for AI context.
+                  </p>
+                </div>
+              </div>
+              
+              <textarea
+                name="base_prompt"
+                value={formData.base_prompt}
+                onChange={handleInputChange}
+                placeholder="Example: You are a helpful shopping assistant for [Brand Name]. Help customers find products, answer questions about sizing, shipping, and returns. Be friendly, concise, and always recommend products that match their needs. If asked about competitors, politely redirect to our offerings."
+                rows={5}
+                maxLength={1000}
+                className="w-full px-4 py-3 bg-[#2a2a4a] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors resize-none font-mono text-sm"
+              />
+              <div className="flex justify-between mt-1">
+                <p className="text-gray-500 text-xs">
+                  💡 Tip: Be specific about tone, product focus, and how to handle edge cases
+                </p>
+                <p className="text-gray-500 text-xs">{formData.base_prompt.length}/1000</p>
+              </div>
             </div>
 
             {/* Brand Colors */}
@@ -918,36 +974,38 @@ function BrandIdentity({ onNext, onBack }) {
               </p>
             </div>
 
-            {/* Actions */}
-            <div className="flex items-center justify-between pt-4">
-              {onBack && (
+            {/* Actions - Hide in settings mode */}
+            {!isSettingsMode && (
+              <div className="flex items-center justify-between pt-4">
+                {onBack && (
+                  <button
+                    type="button"
+                    onClick={onBack}
+                    className="px-6 py-3 text-gray-400 hover:text-white transition-colors"
+                  >
+                    Back
+                  </button>
+                )}
                 <button
-                  type="button"
-                  onClick={onBack}
-                  className="px-6 py-3 text-gray-400 hover:text-white transition-colors"
+                  type="submit"
+                  disabled={!isFormValid()}
+                  className={`ml-auto flex items-center gap-2 px-8 py-3 rounded-lg font-semibold transition-all duration-300 ${
+                    isFormValid()
+                      ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:shadow-lg hover:shadow-purple-500/25 hover:scale-[1.02]'
+                      : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                  }`}
                 >
-                  Back
+                  Next
+                  <ChevronRight className="w-5 h-5" />
                 </button>
-              )}
-              <button
-                type="submit"
-                disabled={!isFormValid()}
-                className={`ml-auto flex items-center gap-2 px-8 py-3 rounded-lg font-semibold transition-all duration-300 ${
-                  isFormValid()
-                    ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:shadow-lg hover:shadow-purple-500/25 hover:scale-[1.02]'
-                    : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                Next
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
+              </div>
+            )}
           </form>
         </div>
         </div>
         
-        {/* Right Side - Preview */}
-        <div className="hidden lg:block">
+        {/* Right Side - Preview (Sticky) */}
+        <div className="hidden lg:block sticky top-4 h-fit self-start">
           {renderPreviewPanel()}
         </div>
       </div>

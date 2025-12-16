@@ -5,6 +5,7 @@ import AuthPage from './pages/AuthPage'
 import BrandIdentity from './pages/BrandIdentity'
 import ApiConfiguration from './pages/ApiConfiguration'
 import MerchantDashboardComplete from './pages/MerchantDashboardComplete'
+import MerchantSettings from './pages/MerchantSettings'
 import PublicChat from './pages/PublicChat'
 
 function AppProfessional() {
@@ -15,6 +16,7 @@ function AppProfessional() {
     if (path === '/onboarding' || path === '/brand-identity') return 'brand-identity'
     if (path === '/api-config' || path === '/api-configuration') return 'api-config'
     if (path === '/dashboard') return 'dashboard'
+    if (path === '/settings') return 'settings'
     if (path.startsWith('/chat/')) return 'public-chat'
     return 'main'
   }
@@ -144,9 +146,9 @@ function AppProfessional() {
       window.history.pushState({}, '', '/onboarding')
       setCurrentRoute('brand-identity')
     } else {
-      // Existing user login - go to dashboard
-      window.history.pushState({}, '', '/dashboard')
-      setCurrentRoute('dashboard')
+      // Existing user login - go to settings page
+      window.history.pushState({}, '', '/settings')
+      setCurrentRoute('settings')
     }
   }
 
@@ -167,10 +169,10 @@ function AppProfessional() {
   // Handle API configuration completion
   const handleApiConfigNext = (allData) => {
     console.log('All Setup Data:', allData)
-    // After complete-setup API call succeeds, go to dashboard
-    alert('Setup complete! Redirecting to dashboard...')
-    window.history.pushState({}, '', '/dashboard')
-    setCurrentRoute('dashboard')
+    // After complete-setup API call succeeds, go to settings
+    alert('Setup complete! Redirecting to your settings...')
+    window.history.pushState({}, '', '/settings')
+    setCurrentRoute('settings')
   }
 
   // Navigate back from API config to brand identity
@@ -194,6 +196,22 @@ function AppProfessional() {
   // Show merchant dashboard
   if (currentRoute === 'dashboard') {
     return <MerchantDashboardComplete />
+  }
+
+  // Show merchant settings
+  if (currentRoute === 'settings') {
+    const handleLogout = () => {
+      setMerchantData(null)
+      setBrandData(null)
+      window.history.pushState({}, '', '/login')
+      setCurrentRoute('auth')
+    }
+    return (
+      <MerchantSettings 
+        onLogout={handleLogout}
+        initialBrandData={brandData}
+      />
+    )
   }
 
   // Show API configuration page
