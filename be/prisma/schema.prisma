@@ -27,12 +27,13 @@ model Merchant {
   phone           String?          // Contact phone
   address         String?          // Business address
   
-  apis            Api[]
-  chats           Chat[]
-  credentials     Credential[]
-  dynamicSettings DynamicSettings?
-  sessions        Session[]
-  users           User[]
+  apis              Api[]
+  chats             Chat[]
+  credentials       Credential[]
+  dynamicSettings   DynamicSettings?
+  sessions          Session[]
+  users             User[]
+  aiConfigurations  AiConfiguration[]
 
   @@map("merchants")
 }
@@ -130,4 +131,22 @@ model Chat {
   session    Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@map("chats")
+}
+
+model AiConfiguration {
+  id         Int      @id @default(autoincrement())
+  merchantId Int      @map("merchant_id")
+  provider   String   @default("gemini") // "gemini", "openai", "claude", etc.
+  apiKey     String   @map("api_key")
+  model      String   // "gemini-pro", "gpt-4", "gpt-3.5-turbo", etc.
+  isActive   Boolean  @default(true) @map("is_active")
+  config     Json?    // Additional configuration like temperature, max_tokens, etc.
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@unique([merchantId, provider])
+  @@index([merchantId])
+  @@index([provider])
+  @@map("ai_configurations")
 }

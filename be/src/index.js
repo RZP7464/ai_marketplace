@@ -5,6 +5,8 @@ const authRoutes = require("./routes/auth");
 const apiRoutes = require("./routes/api");
 const merchantRoutes = require("./routes/merchant");
 const mcpRoutes = require("./routes/mcp");
+const chatRoutes = require("./routes/chat");
+const settingsRoutes = require("./routes/settings");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -18,6 +20,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/merchant-apis", apiRoutes);
 app.use("/api/merchant", merchantRoutes);
 app.use("/api/mcp", mcpRoutes);
+app.use("/api/chat", chatRoutes);
+app.use("/api/settings", settingsRoutes);
 
 // Health check
 app.get("/health", (req, res) => {
