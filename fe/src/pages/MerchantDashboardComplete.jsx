@@ -455,7 +455,7 @@ function MerchantDashboardComplete() {
                       </div>
                       <div>
                         <h4 className="text-white font-semibold">Google Gemini</h4>
-                        <p className="text-gray-400 text-xs">gemini-pro</p>
+                        <p className="text-gray-400 text-xs">gemini-2.0-flash</p>
                       </div>
                     </div>
                     {(merchant.aiConfigurations?.[0]?.provider || 'gemini') === 'gemini' && (
@@ -516,7 +516,7 @@ function MerchantDashboardComplete() {
                   </div>
                   <div>
                     <p className="text-gray-400">Model</p>
-                    <p className="text-white font-mono">{merchant.aiConfigurations?.[0]?.model || 'gemini-pro'}</p>
+                    <p className="text-white font-mono">{merchant.aiConfigurations?.[0]?.model || 'gemini-2.0-flash'}</p>
                   </div>
                   <div>
                     <p className="text-gray-400">Status</p>

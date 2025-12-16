@@ -377,7 +377,7 @@ router.post("/complete-setup", async (req, res) => {
             merchantId: finalMerchantId,
             provider: 'gemini',
             apiKey: process.env.GEMINI_API_KEY,
-            model: 'gemini-pro',
+            model: 'gemini-2.0-flash',
             isActive: true,
             config: {
               temperature: 0.7,
