@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react'
-import { Upload, X, ChevronRight, Image, Plus } from 'lucide-react'
+import { Upload, X, ChevronRight, Image, Plus, Palette } from 'lucide-react'
 
 const TRENDING_CATEGORIES = [
   '👗 Fashion & Apparel',
@@ -18,13 +18,27 @@ const TRENDING_CATEGORIES = [
   '🌱 Eco-Friendly'
 ]
 
+const PRESET_COLORS = [
+  { name: 'Purple', primary: '#8B5CF6', secondary: '#A78BFA' },
+  { name: 'Blue', primary: '#3B82F6', secondary: '#60A5FA' },
+  { name: 'Green', primary: '#10B981', secondary: '#34D399' },
+  { name: 'Red', primary: '#EF4444', secondary: '#F87171' },
+  { name: 'Orange', primary: '#F97316', secondary: '#FB923C' },
+  { name: 'Pink', primary: '#EC4899', secondary: '#F472B6' },
+  { name: 'Teal', primary: '#14B8A6', secondary: '#2DD4BF' },
+  { name: 'Indigo', primary: '#6366F1', secondary: '#818CF8' },
+]
+
 function BrandIdentity({ onNext, onBack }) {
   const [formData, setFormData] = useState({
     display_logo: null,
     display_name: '',
     display_tagline: '',
     display_message: '',
-    display_category: []
+    display_category: [],
+    primary_color: '#8B5CF6',
+    secondary_color: '#A78BFA',
+    accent_color: '#F472B6'
   })
   const [logoPreview, setLogoPreview] = useState(null)
   const [errors, setErrors] = useState({})
@@ -288,6 +302,144 @@ function BrandIdentity({ onNext, onBack }) {
                 className="w-full px-4 py-3 bg-[#2a2a4a] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors resize-none"
               />
               <p className="text-gray-500 text-xs mt-1 text-right">{formData.display_message.length}/250</p>
+            </div>
+
+            {/* Brand Colors */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Palette className="w-4 h-4 text-purple-400" />
+                <label className="text-gray-400 text-xs">Brand Colors</label>
+                <span className="text-gray-600 text-xs">(Customize your store's look)</span>
+              </div>
+              
+              {/* Color Preview */}
+              <div 
+                className="mb-4 p-4 rounded-xl border border-gray-700"
+                style={{ 
+                  background: `linear-gradient(135deg, ${formData.primary_color}20, ${formData.secondary_color}20)` 
+                }}
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div 
+                    className="w-10 h-10 rounded-lg shadow-lg"
+                    style={{ backgroundColor: formData.primary_color }}
+                  />
+                  <div>
+                    <p className="text-white text-sm font-medium">{formData.display_name || 'Your Brand'}</p>
+                    <p className="text-gray-400 text-xs">{formData.display_tagline || 'Your tagline here'}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    type="button"
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+                    style={{ backgroundColor: formData.primary_color }}
+                  >
+                    Primary Button
+                  </button>
+                  <button 
+                    type="button"
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+                    style={{ backgroundColor: formData.secondary_color }}
+                  >
+                    Secondary
+                  </button>
+                  <button 
+                    type="button"
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+                    style={{ backgroundColor: formData.accent_color }}
+                  >
+                    Accent
+                  </button>
+                </div>
+              </div>
+
+              {/* Preset Colors */}
+              <div className="mb-4">
+                <p className="text-gray-500 text-xs mb-2">Quick presets:</p>
+                <div className="flex flex-wrap gap-2">
+                  {PRESET_COLORS.map((preset) => (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      onClick={() => setFormData(prev => ({
+                        ...prev,
+                        primary_color: preset.primary,
+                        secondary_color: preset.secondary
+                      }))}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                        formData.primary_color === preset.primary 
+                          ? 'border-white bg-white/10' 
+                          : 'border-gray-700 hover:border-gray-500'
+                      }`}
+                    >
+                      <div 
+                        className="w-4 h-4 rounded-full"
+                        style={{ background: `linear-gradient(135deg, ${preset.primary}, ${preset.secondary})` }}
+                      />
+                      <span className="text-gray-300">{preset.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Color Pickers */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-gray-500 text-xs mb-2">Primary Color</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={formData.primary_color}
+                      onChange={(e) => setFormData(prev => ({ ...prev, primary_color: e.target.value }))}
+                      className="w-10 h-10 rounded-lg cursor-pointer border-0 bg-transparent"
+                    />
+                    <input
+                      type="text"
+                      value={formData.primary_color}
+                      onChange={(e) => setFormData(prev => ({ ...prev, primary_color: e.target.value }))}
+                      className="flex-1 px-2 py-1.5 bg-[#2a2a4a] border border-gray-700 rounded-lg text-white text-xs uppercase focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-gray-500 text-xs mb-2">Secondary Color</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={formData.secondary_color}
+                      onChange={(e) => setFormData(prev => ({ ...prev, secondary_color: e.target.value }))}
+                      className="w-10 h-10 rounded-lg cursor-pointer border-0 bg-transparent"
+                    />
+                    <input
+                      type="text"
+                      value={formData.secondary_color}
+                      onChange={(e) => setFormData(prev => ({ ...prev, secondary_color: e.target.value }))}
+                      className="flex-1 px-2 py-1.5 bg-[#2a2a4a] border border-gray-700 rounded-lg text-white text-xs uppercase focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-gray-500 text-xs mb-2">Accent Color</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={formData.accent_color}
+                      onChange={(e) => setFormData(prev => ({ ...prev, accent_color: e.target.value }))}
+                      className="w-10 h-10 rounded-lg cursor-pointer border-0 bg-transparent"
+                    />
+                    <input
+                      type="text"
+                      value={formData.accent_color}
+                      onChange={(e) => setFormData(prev => ({ ...prev, accent_color: e.target.value }))}
+                      className="flex-1 px-2 py-1.5 bg-[#2a2a4a] border border-gray-700 rounded-lg text-white text-xs uppercase focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+              </div>
+              <p className="text-gray-500 text-xs mt-2">
+                🎨 These colors will be used throughout your store to match your brand identity
+              </p>
             </div>
 
             {/* Trending Categories */}
