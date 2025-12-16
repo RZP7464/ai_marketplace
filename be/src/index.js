@@ -4,6 +4,7 @@ const cors = require("cors");
 const authRoutes = require("./routes/auth");
 const apiRoutes = require("./routes/api");
 const merchantRoutes = require("./routes/merchant");
+const mcpRoutes = require("./routes/mcp");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -16,6 +17,7 @@ app.use(express.json({ limit: "10mb" })); // Increased limit for logo uploads
 app.use("/api/auth", authRoutes);
 app.use("/api/merchant-apis", apiRoutes);
 app.use("/api/merchant", merchantRoutes);
+app.use("/api/mcp", mcpRoutes);
 
 // Health check
 app.get("/health", (req, res) => {
