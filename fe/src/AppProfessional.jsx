@@ -4,6 +4,7 @@ import SidebarProfessional from './components/SidebarProfessional'
 import AuthPage from './pages/AuthPage'
 import BrandIdentity from './pages/BrandIdentity'
 import ApiConfiguration from './pages/ApiConfiguration'
+import MerchantDashboardComplete from './pages/MerchantDashboardComplete'
 
 function AppProfessional() {
   // Check current route
@@ -12,6 +13,7 @@ function AppProfessional() {
     if (path === '/login' || path === '/merchant') return 'auth'
     if (path === '/onboarding' || path === '/brand-identity') return 'brand-identity'
     if (path === '/api-config' || path === '/api-configuration') return 'api-config'
+    if (path === '/dashboard') return 'dashboard'
     return 'main'
   }
   
@@ -141,9 +143,8 @@ function AppProfessional() {
       setCurrentRoute('brand-identity')
     } else {
       // Existing user login - go to dashboard
-      alert('Login successful! Merchant dashboard coming soon.')
-      window.history.pushState({}, '', '/')
-      setCurrentRoute('main')
+      window.history.pushState({}, '', '/dashboard')
+      setCurrentRoute('dashboard')
     }
   }
 
@@ -164,10 +165,10 @@ function AppProfessional() {
   // Handle API configuration completion
   const handleApiConfigNext = (allData) => {
     console.log('All Setup Data:', allData)
-    // TODO: Save all data to backend
-    alert('Setup complete! Merchant dashboard coming soon.')
-    window.history.pushState({}, '', '/')
-    setCurrentRoute('main')
+    // After complete-setup API call succeeds, go to dashboard
+    alert('Setup complete! Redirecting to dashboard...')
+    window.history.pushState({}, '', '/dashboard')
+    setCurrentRoute('dashboard')
   }
 
   // Navigate back from API config to brand identity
@@ -180,6 +181,11 @@ function AppProfessional() {
   const goToLogin = () => {
     window.history.pushState({}, '', '/login')
     setCurrentRoute('auth')
+  }
+
+  // Show merchant dashboard
+  if (currentRoute === 'dashboard') {
+    return <MerchantDashboardComplete />
   }
 
   // Show API configuration page

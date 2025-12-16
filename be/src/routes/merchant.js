@@ -4,7 +4,7 @@ const { authenticateToken } = require("../middleware/auth");
 
 const router = express.Router();
 
-// GET /api/merchant - Get current merchant profile
+// GET /api/merchant - Get current merchant profile with all data
 router.get("/", authenticateToken, async (req, res) => {
   try {
     const merchantId = req.user.merchantId;
@@ -13,6 +13,20 @@ router.get("/", authenticateToken, async (req, res) => {
       where: { id: merchantId },
       include: {
         dynamicSettings: true,
+        apis: {
+          include: {
+            credential: true
+          }
+        },
+        aiConfigurations: true,
+        users: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            createdAt: true
+          }
+        }
       },
     });
 
