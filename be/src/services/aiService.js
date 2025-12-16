@@ -5,7 +5,7 @@ const mcpService = require('./mcpService');
 
 // Default Gemini API key (from environment variable)
 const DEFAULT_GEMINI_KEY = process.env.GEMINI_API_KEY;
-const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash-lite';
+const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
 
 class AIService {
   /**
