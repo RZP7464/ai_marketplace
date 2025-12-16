@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react'
 import { ShoppingBag, MessageSquare, X, Plus, Minus, Send } from 'lucide-react'
 import SidebarProfessional from './components/SidebarProfessional'
 import AuthPage from './pages/AuthPage'
+import BrandIdentity from './pages/BrandIdentity'
 
 function AppProfessional() {
-  // Check if current path is /login or /merchant
-  const isLoginRoute = () => {
+  // Check current route
+  const getCurrentRoute = () => {
     const path = window.location.pathname
-    return path === '/login' || path === '/merchant'
+    if (path === '/login' || path === '/merchant') return 'auth'
+    if (path === '/onboarding' || path === '/brand-identity') return 'brand-identity'
+    return 'main'
   }
   
   const [selectedChat, setSelectedChat] = useState(null)
@@ -15,13 +18,14 @@ function AppProfessional() {
   const [messages, setMessages] = useState([])
   const [showProducts, setShowProducts] = useState(false)
   const [showCart, setShowCart] = useState(false)
-  const [showMerchantPortal, setShowMerchantPortal] = useState(isLoginRoute())
+  const [currentRoute, setCurrentRoute] = useState(getCurrentRoute())
+  const [merchantData, setMerchantData] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   
   // Listen for URL changes
   useEffect(() => {
     const handleRouteChange = () => {
-      setShowMerchantPortal(isLoginRoute())
+      setCurrentRoute(getCurrentRoute())
     }
     window.addEventListener('popstate', handleRouteChange)
     return () => {
@@ -125,22 +129,55 @@ function AppProfessional() {
   const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0)
 
-  // Handle merchant login
-  const handleMerchantLogin = (userData) => {
-    // For now, just show success and go back to main page
-    alert('Login successful! Merchant dashboard coming soon.')
+  // Handle merchant login/signup - redirect to brand identity for new signups
+  const handleMerchantAuth = (userData, isSignup = false) => {
+    setMerchantData(userData)
+    if (isSignup) {
+      // New signup - go to brand identity page
+      window.history.pushState({}, '', '/onboarding')
+      setCurrentRoute('brand-identity')
+    } else {
+      // Existing user login - go to dashboard
+      alert('Login successful! Merchant dashboard coming soon.')
+      window.history.pushState({}, '', '/')
+      setCurrentRoute('main')
+    }
+  }
+
+  // Handle brand identity form completion
+  const handleBrandIdentityNext = (brandData) => {
+    console.log('Brand Identity Data:', brandData)
+    // TODO: Save brand data to backend
+    alert('Brand identity saved! Merchant dashboard coming soon.')
     window.history.pushState({}, '', '/')
-    setShowMerchantPortal(false)
+    setCurrentRoute('main')
+  }
+
+  // Navigate back from brand identity to auth
+  const handleBrandIdentityBack = () => {
+    window.history.pushState({}, '', '/login')
+    setCurrentRoute('auth')
   }
 
   // Navigate to login page
   const goToLogin = () => {
     window.history.pushState({}, '', '/login')
-    setShowMerchantPortal(true)
+    setCurrentRoute('auth')
   }
 
-  if (showMerchantPortal) {
-    return <AuthPage onLogin={handleMerchantLogin} />
+  // Show brand identity page
+  if (currentRoute === 'brand-identity') {
+    return (
+      <BrandIdentity 
+        onNext={handleBrandIdentityNext}
+        onBack={handleBrandIdentityBack}
+      />
+    )
+  }
+
+  // Show auth page
+  if (currentRoute === 'auth') {
+    return <AuthPage onLogin={handleMerchantAuth} />
   }
 
   return (
