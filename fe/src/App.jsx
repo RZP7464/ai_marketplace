@@ -5,6 +5,7 @@ import ChatArea from './components/ChatArea'
 import ProductDisplay from './components/ProductDisplay'
 import CommandBar from './components/CommandBar'
 import AuthPage from './pages/AuthPage'
+import MerchantApp from './MerchantApp'
 
 function App() {
   // Simple hash-based routing for merchant login
@@ -15,6 +16,7 @@ function App() {
   const [messages, setMessages] = useState([])
   const [showProducts, setShowProducts] = useState(false)
   const [showCart, setShowCart] = useState(false)
+  const [showMerchantPortal, setShowMerchantPortal] = useState(false)
   const [products, setProducts] = useState([
     {
       id: 1,
