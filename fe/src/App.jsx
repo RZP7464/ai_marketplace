@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar'
 import ChatArea from './components/ChatArea'
 import ProductDisplay from './components/ProductDisplay'
 import CommandBar from './components/CommandBar'
+import MerchantApp from './MerchantApp'
 
 function App() {
   const [selectedChat, setSelectedChat] = useState(null)
@@ -11,6 +12,7 @@ function App() {
   const [messages, setMessages] = useState([])
   const [showProducts, setShowProducts] = useState(false)
   const [showCart, setShowCart] = useState(false)
+  const [showMerchantPortal, setShowMerchantPortal] = useState(false)
   const [products, setProducts] = useState([
     {
       id: 1,

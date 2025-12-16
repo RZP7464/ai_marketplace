@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
-import { MessageSquare, Plus, Store } from 'lucide-react'
+import { MessageSquare, Plus, Store, UserCircle } from 'lucide-react'
 
-const Sidebar = ({ selectedChat, onSelectChat }) => {
+const Sidebar = ({ selectedChat, onSelectChat, onMerchantLogin }) => {
   const [chats] = useState([
     { id: 1, title: 'Shopping Session 1', date: '2 hours ago', preview: 'Looking for sneakers...' },
     { id: 2, title: 'Previous Order', date: 'Yesterday', preview: 'Checked out 3 items' },
@@ -12,10 +12,19 @@ const Sidebar = ({ selectedChat, onSelectChat }) => {
     <div className="w-80 bg-white border-r border-gray-200 flex flex-col shadow-lg">
       {/* Icon/Logo Section */}
       <div className="p-6 border-b border-gray-200">
-        <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg">
-          <Store className="w-8 h-8 text-white" />
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg">
+            <Store className="w-8 h-8 text-white" />
+          </div>
+          <button
+            onClick={onMerchantLogin}
+            className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl hover:shadow-lg transition-all hover:scale-105"
+            title="Merchant Login"
+          >
+            <UserCircle className="w-6 h-6 text-white" />
+          </button>
         </div>
-        <h1 className="mt-4 text-xl font-bold text-gray-800">Chat Commerce</h1>
+        <h1 className="text-xl font-bold text-gray-800">Chat Commerce</h1>
         <p className="text-sm text-gray-500 mt-1">AI-Powered Shopping</p>
       </div>
       
