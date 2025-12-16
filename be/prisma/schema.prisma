@@ -7,89 +7,86 @@ datasource db {
 }
 
 model Merchant {
-  id              Int              @id @default(autoincrement())
   name            String
   email           String           @unique
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
-
-  credentials     Credential[]
+  id              Int              @id @default(autoincrement())
+  slug            String           @unique
+  type            String           @default("general")
   apis            Api[]
-  dynamicSettings DynamicSettings?
-  users           User[]
-  sessions        Session[]
   chats           Chat[]
+  credentials     Credential[]
+  dynamicSettings DynamicSettings?
+  sessions        Session[]
+  users           User[]
 
   @@map("merchants")
 }
 
 model Credential {
-  id         Int      @id @default(autoincrement())
-  merchantId Int      @map("merchant_id")
   authType   String   @map("auth_type")
   header     String?
   username   String?
   password   String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-
-  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  id         Int      @id @default(autoincrement())
+  merchantId Int      @map("merchant_id")
   apis       Api[]
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
 
   @@map("credentials")
 }
 
 model Api {
-  id         Int      @id @default(autoincrement())
-  merchantId Int      @map("merchant_id")
-  authId     Int      @map("auth_id")
-  apiType    String   @map("api_type")
+  apiType    String     @map("api_type")
   payload    Json
   config     Json
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  merchant   Merchant   @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  id         Int        @id @default(autoincrement())
+  merchantId Int        @map("merchant_id")
+  authId     Int        @map("auth_id")
   credential Credential @relation(fields: [authId], references: [id], onDelete: Cascade)
+  merchant   Merchant   @relation(fields: [merchantId], references: [id], onDelete: Cascade)
 
   @@map("apis")
 }
 
 model DynamicSettings {
-  id         Int      @id @default(autoincrement())
-  merchantId Int      @unique @map("merchant_id")
   color      String?
   icon       String?
   header     String?
   footer     String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-
+  id         Int      @id @default(autoincrement())
+  merchantId Int      @unique @map("merchant_id")
   merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
 
   @@map("dynamic_settings")
 }
 
 model StandardPayload {
-  id        Int      @id @default(autoincrement())
   apiType   String   @map("api_type")
   config    Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  id        Int      @id @default(autoincrement())
 
   @@map("standard_payloads")
 }
 
 model User {
-  id         Int      @id @default(autoincrement())
   name       String
   email      String   @unique
   password   String
   phoneNo    String?  @map("phone_no")
-  merchantId Int      @map("merchant_id")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-
+  id         Int      @id @default(autoincrement())
+  merchantId Int      @map("merchant_id")
   merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
 
   @@map("users")
@@ -100,9 +97,8 @@ model Session {
   merchantId Int      @map("merchant_id")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-
-  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
   chats      Chat[]
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
 
   @@map("sessions")
 }
@@ -114,9 +110,8 @@ model Chat {
   message    String
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-
-  session    Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  session    Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@map("chats")
 }
