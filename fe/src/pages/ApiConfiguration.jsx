@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { ChevronRight, ChevronLeft, Plus, X, Code, Search, ShoppingCart, CreditCard, MessageSquare, Ticket, Loader2 } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, X, Code, Search, ShoppingCart, CreditCard, MessageSquare, Ticket, Loader2, Terminal, Clipboard, Sparkles } from 'lucide-react'
 import apiService from '../services/api'
 
 const API_CONFIGS = [
@@ -45,6 +45,107 @@ const METHOD_COLORS = {
   PATCH: 'bg-purple-500'
 }
 
+// Parse curl command and extract API configuration
+const parseCurlCommand = (curlString) => {
+  const config = {
+    url: '',
+    method: 'GET',
+    headers: [],
+    params: [],
+    body: ''
+  }
+
+  // Clean up the curl string - remove line continuations and extra whitespace
+  let cleanCurl = curlString
+    .replace(/\\\n/g, ' ')
+    .replace(/\\\r\n/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  // Extract method using -X or --request
+  const methodMatch = cleanCurl.match(/(?:-X|--request)\s+['"]?(\w+)['"]?/i)
+  if (methodMatch) {
+    config.method = methodMatch[1].toUpperCase()
+  } else if (cleanCurl.includes('--data') || cleanCurl.includes('-d ')) {
+    // If there's data but no explicit method, it's POST
+    config.method = 'POST'
+  }
+
+  // Extract URL - handle both quoted and unquoted URLs
+  const urlPatterns = [
+    /curl\s+(?:.*?\s+)?['"]?(https?:\/\/[^\s'"]+)['"]?/i,
+    /['"]?(https?:\/\/[^\s'"]+)['"]?/i
+  ]
+  
+  for (const pattern of urlPatterns) {
+    const urlMatch = cleanCurl.match(pattern)
+    if (urlMatch) {
+      let fullUrl = urlMatch[1]
+      
+      // Parse URL to extract query params
+      try {
+        const urlObj = new URL(fullUrl)
+        config.url = `${urlObj.origin}${urlObj.pathname}`
+        
+        // Extract query parameters
+        urlObj.searchParams.forEach((value, key) => {
+          config.params.push({ key, value })
+        })
+      } catch {
+        config.url = fullUrl
+      }
+      break
+    }
+  }
+
+  // Extract headers using -H or --header
+  const headerRegex = /(?:-H|--header)\s+['"]([^'"]+)['"]/gi
+  let headerMatch
+  while ((headerMatch = headerRegex.exec(cleanCurl)) !== null) {
+    const headerStr = headerMatch[1]
+    const colonIndex = headerStr.indexOf(':')
+    if (colonIndex > 0) {
+      const key = headerStr.substring(0, colonIndex).trim()
+      const value = headerStr.substring(colonIndex + 1).trim()
+      config.headers.push({ key, value })
+    }
+  }
+
+  // Extract body data using -d, --data, --data-raw, or --data-binary
+  const dataPatterns = [
+    /(?:--data-raw|--data-binary|--data|-d)\s+'([^']+)'/i,
+    /(?:--data-raw|--data-binary|--data|-d)\s+"([^"]+)"/i,
+    /(?:--data-raw|--data-binary|--data|-d)\s+(\{[^}]+\})/i,
+    /(?:--data-raw|--data-binary|--data|-d)\s+'({[\s\S]*?})'/i,
+    /(?:--data-raw|--data-binary|--data|-d)\s+"({[\s\S]*?})"/i
+  ]
+
+  for (const pattern of dataPatterns) {
+    const dataMatch = cleanCurl.match(pattern)
+    if (dataMatch) {
+      let bodyData = dataMatch[1]
+      // Try to pretty print JSON
+      try {
+        const parsed = JSON.parse(bodyData)
+        config.body = JSON.stringify(parsed, null, 2)
+      } catch {
+        config.body = bodyData
+      }
+      break
+    }
+  }
+
+  // Ensure at least one empty header/param if none found
+  if (config.headers.length === 0) {
+    config.headers.push({ key: '', value: '' })
+  }
+  if (config.params.length === 0) {
+    config.params.push({ key: '', value: '' })
+  }
+
+  return config
+}
+
 function ApiConfiguration({ onNext, onBack, brandData }) {
   const [currentApiIndex, setCurrentApiIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
@@ -61,6 +162,9 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
       }
     }), {})
   )
+  const [showCurlModal, setShowCurlModal] = useState(false)
+  const [curlInput, setCurlInput] = useState('')
+  const [parseError, setParseError] = useState('')
 
   const currentApi = API_CONFIGS[currentApiIndex]
   const currentConfig = apiConfigs[currentApi.key]
@@ -144,6 +248,56 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
     }
   }
 
+  const handleParseCurl = () => {
+    setParseError('')
+    if (!curlInput.trim()) {
+      setParseError('Please paste a curl command')
+      return
+    }
+
+    if (!curlInput.toLowerCase().includes('curl')) {
+      setParseError('Invalid curl command. Make sure it starts with "curl"')
+      return
+    }
+
+    try {
+      const parsed = parseCurlCommand(curlInput)
+      
+      if (!parsed.url) {
+        setParseError('Could not extract URL from curl command')
+        return
+      }
+
+      // Apply parsed config to current API
+      setApiConfigs(prev => ({
+        ...prev,
+        [currentApi.key]: {
+          url: parsed.url,
+          method: parsed.method,
+          headers: parsed.headers,
+          params: parsed.params,
+          body: parsed.body
+        }
+      }))
+
+      // Close modal and reset
+      setShowCurlModal(false)
+      setCurlInput('')
+    } catch (err) {
+      setParseError('Failed to parse curl command. Please check the format.')
+    }
+  }
+
+  const handlePasteFromClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText()
+      setCurlInput(text)
+      setParseError('')
+    } catch (err) {
+      setParseError('Could not access clipboard. Please paste manually.')
+    }
+  }
+
   const isLastApi = currentApiIndex === API_CONFIGS.length - 1
   const isFirstApi = currentApiIndex === 0
 
@@ -216,12 +370,23 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
           {/* Current API Form */}
           <div className="bg-[#2a2a4a] rounded-xl p-6 space-y-5">
             {/* API Header */}
-            <div className="flex items-center gap-3 pb-4 border-b border-gray-700">
-              {React.createElement(currentApi.icon, { className: 'w-6 h-6 text-purple-400' })}
-              <div>
-                <h3 className="text-white font-semibold">{currentApi.label}</h3>
-                <p className="text-gray-500 text-xs">{currentApi.description}</p>
+            <div className="flex items-center justify-between pb-4 border-b border-gray-700">
+              <div className="flex items-center gap-3">
+                {React.createElement(currentApi.icon, { className: 'w-6 h-6 text-purple-400' })}
+                <div>
+                  <h3 className="text-white font-semibold">{currentApi.label}</h3>
+                  <p className="text-gray-500 text-xs">{currentApi.description}</p>
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setShowCurlModal(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 text-emerald-400 hover:from-emerald-500/30 hover:to-teal-500/30 hover:border-emerald-400 transition-all group"
+              >
+                <Terminal className="w-4 h-4" />
+                <span className="text-sm font-medium">Import from cURL</span>
+                <Sparkles className="w-3 h-3 opacity-60 group-hover:opacity-100" />
+              </button>
             </div>
 
             {/* URL & Method */}
@@ -418,6 +583,110 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
           </div>
         </div>
       </div>
+
+      {/* cURL Import Modal */}
+      {showCurlModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#252542] rounded-2xl w-full max-w-2xl shadow-2xl border border-white/10 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-gradient-to-r from-emerald-500/10 to-teal-500/10">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-emerald-500/20">
+                  <Terminal className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-white font-semibold">Import from cURL</h3>
+                  <p className="text-gray-400 text-xs">Paste your cURL command to auto-fill API configuration</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowCurlModal(false)
+                  setCurlInput('')
+                  setParseError('')
+                }}
+                className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-gray-300 text-sm font-medium">cURL Command</label>
+                <button
+                  onClick={handlePasteFromClipboard}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1e1e3f] border border-gray-700 text-gray-400 hover:text-white hover:border-emerald-500/50 transition-all text-xs"
+                >
+                  <Clipboard className="w-3.5 h-3.5" />
+                  Paste from Clipboard
+                </button>
+              </div>
+              
+              <textarea
+                value={curlInput}
+                onChange={(e) => {
+                  setCurlInput(e.target.value)
+                  setParseError('')
+                }}
+                placeholder={`curl -X POST 'https://api.example.com/endpoint' \\
+  -H 'Content-Type: application/json' \\
+  -H 'Authorization: Bearer your-token' \\
+  -d '{"key": "value"}'`}
+                rows={8}
+                className="w-full px-4 py-3 bg-[#1e1e3f] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 text-sm font-mono resize-none"
+              />
+
+              {parseError && (
+                <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {parseError}
+                </div>
+              )}
+
+              <div className="bg-[#1e1e3f]/50 rounded-lg p-4 border border-gray-700/50">
+                <div className="flex items-start gap-2 text-xs text-gray-400">
+                  <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-gray-300 font-medium mb-1">Supported formats:</p>
+                    <ul className="space-y-0.5 text-gray-500">
+                      <li>• HTTP methods: GET, POST, PUT, DELETE, PATCH</li>
+                      <li>• Headers: -H or --header flags</li>
+                      <li>• Request body: -d, --data, --data-raw flags</li>
+                      <li>• Query parameters from URL</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10 bg-[#1e1e3f]/30">
+              <button
+                onClick={() => {
+                  setShowCurlModal(false)
+                  setCurlInput('')
+                  setParseError('')
+                }}
+                className="px-5 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleParseCurl}
+                disabled={!curlInput.trim()}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:shadow-lg hover:shadow-emerald-500/25 hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none text-sm"
+              >
+                <Sparkles className="w-4 h-4" />
+                Import & Fill Fields
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
