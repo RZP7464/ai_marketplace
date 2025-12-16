@@ -3,6 +3,7 @@ import { ShoppingBag, MessageSquare, X, Plus, Minus, Send } from 'lucide-react'
 import SidebarProfessional from './components/SidebarProfessional'
 import AuthPage from './pages/AuthPage'
 import BrandIdentity from './pages/BrandIdentity'
+import ApiConfiguration from './pages/ApiConfiguration'
 
 function AppProfessional() {
   // Check current route
@@ -10,6 +11,7 @@ function AppProfessional() {
     const path = window.location.pathname
     if (path === '/login' || path === '/merchant') return 'auth'
     if (path === '/onboarding' || path === '/brand-identity') return 'brand-identity'
+    if (path === '/api-config' || path === '/api-configuration') return 'api-config'
     return 'main'
   }
   
@@ -20,6 +22,7 @@ function AppProfessional() {
   const [showCart, setShowCart] = useState(false)
   const [currentRoute, setCurrentRoute] = useState(getCurrentRoute())
   const [merchantData, setMerchantData] = useState(null)
+  const [brandData, setBrandData] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   
   // Listen for URL changes
@@ -144,13 +147,12 @@ function AppProfessional() {
     }
   }
 
-  // Handle brand identity form completion
-  const handleBrandIdentityNext = (brandData) => {
-    console.log('Brand Identity Data:', brandData)
-    // TODO: Save brand data to backend
-    alert('Brand identity saved! Merchant dashboard coming soon.')
-    window.history.pushState({}, '', '/')
-    setCurrentRoute('main')
+  // Handle brand identity form completion - go to API config
+  const handleBrandIdentityNext = (data) => {
+    console.log('Brand Identity Data:', data)
+    setBrandData(data)
+    window.history.pushState({}, '', '/api-config')
+    setCurrentRoute('api-config')
   }
 
   // Navigate back from brand identity to auth
@@ -159,10 +161,36 @@ function AppProfessional() {
     setCurrentRoute('auth')
   }
 
+  // Handle API configuration completion
+  const handleApiConfigNext = (allData) => {
+    console.log('All Setup Data:', allData)
+    // TODO: Save all data to backend
+    alert('Setup complete! Merchant dashboard coming soon.')
+    window.history.pushState({}, '', '/')
+    setCurrentRoute('main')
+  }
+
+  // Navigate back from API config to brand identity
+  const handleApiConfigBack = () => {
+    window.history.pushState({}, '', '/onboarding')
+    setCurrentRoute('brand-identity')
+  }
+
   // Navigate to login page
   const goToLogin = () => {
     window.history.pushState({}, '', '/login')
     setCurrentRoute('auth')
+  }
+
+  // Show API configuration page
+  if (currentRoute === 'api-config') {
+    return (
+      <ApiConfiguration 
+        onNext={handleApiConfigNext}
+        onBack={handleApiConfigBack}
+        brandData={brandData}
+      />
+    )
   }
 
   // Show brand identity page
