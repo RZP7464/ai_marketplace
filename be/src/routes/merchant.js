@@ -145,28 +145,60 @@ router.put("/settings", authenticateToken, async (req, res) => {
   }
 });
 
-// POST /api/merchant/complete-setup - Complete full merchant setup (brand + APIs)
-// No auth required for first-time setup
+// POST /api/merchant/complete-setup - Complete merchant signup/onboarding
+// Creates new merchant with brand data and API configs (no auth required)
 router.post("/complete-setup", async (req, res) => {
   try {
-    const { brandData, apiConfigs, merchantId, email } = req.body;
+    const { brandData, apiConfigs, email, password, name } = req.body;
     
-    // Get merchantId from request body or try to find by email
-    let finalMerchantId = merchantId;
-    
-    if (!finalMerchantId && email) {
-      const merchant = await prisma.merchant.findUnique({
-        where: { email }
-      });
-      if (merchant) {
-        finalMerchantId = merchant.id;
-      }
-    }
-    
-    if (!finalMerchantId) {
+    // Validate required fields
+    if (!brandData || !brandData.display_name) {
       return res.status(400).json({
         success: false,
-        error: 'merchantId or email is required'
+        error: 'Brand name is required'
+      });
+    }
+    
+    // Generate unique email and slug if not provided
+    const merchantEmail = email || `${brandData.display_name.toLowerCase().replace(/[^a-z0-9]/g, '')}@merchant.local`;
+    const merchantSlug = brandData.display_name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const merchantPassword = password || 'password123';
+    const merchantName = name || `${brandData.display_name} Admin`;
+    
+    // Check if merchant with this slug already exists
+    const existingMerchant = await prisma.merchant.findUnique({
+      where: { slug: merchantSlug }
+    });
+    
+    let finalMerchantId;
+    
+    if (existingMerchant) {
+      // Update existing merchant
+      finalMerchantId = existingMerchant.id;
+    } else {
+      // Create new merchant
+      const newMerchant = await prisma.merchant.create({
+        data: {
+          name: brandData.display_name,
+          email: merchantEmail,
+          slug: merchantSlug,
+          type: 'general',
+          displayName: brandData.display_name
+        }
+      });
+      finalMerchantId = newMerchant.id;
+      
+      // Create default user for this merchant
+      const bcrypt = require('bcryptjs');
+      const hashedPassword = await bcrypt.hash(merchantPassword, 10);
+      
+      await prisma.user.create({
+        data: {
+          name: merchantName,
+          email: merchantEmail,
+          password: hashedPassword,
+          merchantId: finalMerchantId
+        }
       });
     }
 
