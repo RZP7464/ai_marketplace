@@ -366,7 +366,28 @@ router.post("/complete-setup", async (req, res) => {
         savedApis.push(savedApi);
       }
 
-      return { merchant, dynamicSettings, apis: savedApis };
+      // 5. Create default Gemini AI configuration (if not exists)
+      let aiConfig = await tx.aiConfiguration.findFirst({
+        where: { merchantId: finalMerchantId }
+      });
+
+      if (!aiConfig && process.env.GEMINI_API_KEY) {
+        aiConfig = await tx.aiConfiguration.create({
+          data: {
+            merchantId: finalMerchantId,
+            provider: 'gemini',
+            apiKey: process.env.GEMINI_API_KEY,
+            model: 'gemini-pro',
+            isActive: true,
+            config: {
+              temperature: 0.7,
+              maxOutputTokens: 2048
+            }
+          }
+        });
+      }
+
+      return { merchant, dynamicSettings, apis: savedApis, aiConfig };
     });
 
     res.json({

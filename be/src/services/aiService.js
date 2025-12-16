@@ -3,9 +3,13 @@ const OpenAI = require('openai');
 const prisma = require('../lib/prisma');
 const mcpService = require('./mcpService');
 
+// Default Gemini API key (from environment variable)
+const DEFAULT_GEMINI_KEY = process.env.GEMINI_API_KEY;
+const DEFAULT_GEMINI_MODEL = 'gemini-pro';
+
 class AIService {
   /**
-   * Get AI configuration for merchant
+   * Get AI configuration for merchant (with Gemini fallback)
    */
   async getAIConfig(merchantId) {
     const config = await prisma.aiConfiguration.findFirst({
@@ -15,8 +19,19 @@ class AIService {
       }
     });
 
+    // If no config found, return default Gemini config
     if (!config) {
-      throw new Error('No active AI configuration found for this merchant');
+      console.log(`No AI config for merchant ${merchantId}, using default Gemini`);
+      return {
+        provider: 'gemini',
+        apiKey: DEFAULT_GEMINI_KEY,
+        model: DEFAULT_GEMINI_MODEL,
+        isActive: true,
+        config: {
+          temperature: 0.7,
+          maxOutputTokens: 2048
+        }
+      };
     }
 
     return config;

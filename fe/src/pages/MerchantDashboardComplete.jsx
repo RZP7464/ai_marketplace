@@ -428,21 +428,124 @@ function MerchantDashboardComplete() {
         )}
 
         {activeTab === 'settings' && (
-          <div className="bg-white/5 backdrop-blur-md rounded-lg p-8 border border-white/10">
-            <h2 className="text-2xl font-bold text-white mb-6">Settings</h2>
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold text-white mb-4">Dynamic Settings</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(dynamicSettings).map(([key, value]) => (
-                    key !== 'id' && key !== 'merchantId' && key !== 'createdAt' && key !== 'updatedAt' && (
-                      <div key={key} className="p-4 bg-white/5 rounded-lg">
-                        <p className="text-gray-400 text-sm capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</p>
-                        <p className="text-white mt-1">{value || 'Not set'}</p>
-                      </div>
-                    )
-                  ))}
+          <div className="space-y-6">
+            {/* AI Provider Settings */}
+            <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/30 rounded-lg p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-semibold text-white flex items-center">
+                    <span className="mr-2">🤖</span> AI Provider Settings
+                  </h3>
+                  <p className="text-gray-400 text-sm mt-1">Choose your AI provider for chat</p>
                 </div>
+              </div>
+
+              {/* AI Provider Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Gemini Card */}
+                <div className={`p-5 rounded-lg border-2 transition-all cursor-pointer ${
+                  (merchant.aiConfigurations?.[0]?.provider || 'gemini') === 'gemini'
+                    ? 'bg-green-500/20 border-green-500'
+                    : 'bg-white/5 border-white/20 hover:border-white/40'
+                }`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-green-500 flex items-center justify-center">
+                        <span className="text-xl">💎</span>
+                      </div>
+                      <div>
+                        <h4 className="text-white font-semibold">Google Gemini</h4>
+                        <p className="text-gray-400 text-xs">gemini-pro</p>
+                      </div>
+                    </div>
+                    {(merchant.aiConfigurations?.[0]?.provider || 'gemini') === 'gemini' && (
+                      <span className="px-3 py-1 bg-green-500 text-white text-xs rounded-full">Active</span>
+                    )}
+                  </div>
+                  <p className="text-gray-400 text-sm">
+                    Free tier available • Best for general use • Fast responses
+                  </p>
+                  <div className="mt-3 pt-3 border-t border-white/10">
+                    <p className="text-gray-500 text-xs">
+                      ✅ Default provider (pre-configured)
+                    </p>
+                  </div>
+                </div>
+
+                {/* OpenAI Card */}
+                <div className={`p-5 rounded-lg border-2 transition-all cursor-pointer ${
+                  merchant.aiConfigurations?.[0]?.provider === 'openai'
+                    ? 'bg-green-500/20 border-green-500'
+                    : 'bg-white/5 border-white/20 hover:border-white/40'
+                }`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                        <span className="text-xl">🧠</span>
+                      </div>
+                      <div>
+                        <h4 className="text-white font-semibold">OpenAI</h4>
+                        <p className="text-gray-400 text-xs">GPT-4 / GPT-3.5</p>
+                      </div>
+                    </div>
+                    {merchant.aiConfigurations?.[0]?.provider === 'openai' && (
+                      <span className="px-3 py-1 bg-green-500 text-white text-xs rounded-full">Active</span>
+                    )}
+                  </div>
+                  <p className="text-gray-400 text-sm">
+                    Premium quality • Advanced reasoning • Tool calling
+                  </p>
+                  <div className="mt-3 pt-3 border-t border-white/10">
+                    <p className="text-gray-500 text-xs">
+                      🔑 Requires your own API key
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Current Config Info */}
+              <div className="mt-6 p-4 bg-black/30 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-green-400">●</span>
+                  <span className="text-white font-medium">Current Configuration</span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-400">Provider</p>
+                    <p className="text-white font-mono">{merchant.aiConfigurations?.[0]?.provider || 'gemini'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Model</p>
+                    <p className="text-white font-mono">{merchant.aiConfigurations?.[0]?.model || 'gemini-pro'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Status</p>
+                    <p className="text-green-400">Active</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">API Key</p>
+                    <p className="text-white font-mono">••••••••••</p>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-gray-500 text-xs mt-4">
+                💡 Gemini is pre-configured and ready to use. To switch to OpenAI, add your API key in AI Settings.
+              </p>
+            </div>
+
+            {/* Dynamic Settings */}
+            <div className="bg-white/5 backdrop-blur-md rounded-lg p-8 border border-white/10">
+              <h3 className="text-lg font-semibold text-white mb-4">Dynamic Settings</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Object.entries(dynamicSettings).map(([key, value]) => (
+                  key !== 'id' && key !== 'merchantId' && key !== 'createdAt' && key !== 'updatedAt' && (
+                    <div key={key} className="p-4 bg-white/5 rounded-lg">
+                      <p className="text-gray-400 text-sm capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</p>
+                      <p className="text-white mt-1">{value || 'Not set'}</p>
+                    </div>
+                  )
+                ))}
               </div>
             </div>
           </div>

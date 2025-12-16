@@ -64,24 +64,42 @@ router.post('/public/:merchantSlug', async (req, res) => {
       }
     });
 
-    // Get AI response using merchant's AI service
-    const aiResponse = await aiService.chat(merchant.id, session.id, message);
+    // Get conversation history
+    const previousMessages = await prisma.message.findMany({
+      where: { sessionId: session.id },
+      orderBy: { createdAt: 'asc' },
+      take: 10 // Last 10 messages for context
+    });
+
+    const conversationHistory = previousMessages.map(msg => ({
+      role: msg.sender === 'assistant' ? 'assistant' : 'user',
+      content: msg.content
+    }));
+
+    // Get AI response using merchant's AI service (with Gemini fallback)
+    const aiResponse = await aiService.chat(merchant.id, message, conversationHistory);
 
     // Save assistant message
+    const responseText = aiResponse.response || aiResponse.message || 'Sorry, I could not generate a response.';
+    
     await prisma.message.create({
       data: {
         sessionId: session.id,
-        content: aiResponse.message,
+        content: responseText,
         sender: 'assistant',
-        metadata: aiResponse.metadata || {}
+        metadata: {
+          functionCalls: aiResponse.functionCalls || [],
+          functionResults: aiResponse.functionResults || []
+        }
       }
     });
 
     res.json({
       success: true,
       data: {
-        response: aiResponse.message,
-        sessionId: session.id
+        response: responseText,
+        sessionId: session.id,
+        toolsUsed: aiResponse.functionCalls?.length > 0
       }
     });
   } catch (error) {
