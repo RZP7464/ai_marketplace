@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { ShoppingBag, MessageSquare, X, Plus, Minus, Send } from 'lucide-react'
 import SidebarProfessional from './components/SidebarProfessional'
-import MerchantApp from './MerchantApp'
+import AuthPage from './pages/AuthPage'
 
 function AppProfessional() {
   const [selectedChat, setSelectedChat] = useState(null)
@@ -108,8 +108,15 @@ function AppProfessional() {
   const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0)
 
+  // Handle merchant login
+  const handleMerchantLogin = (userData) => {
+    // For now, just show success and go back
+    alert('Login successful! Merchant dashboard coming soon.')
+    setShowMerchantPortal(false)
+  }
+
   if (showMerchantPortal) {
-    return <MerchantApp onBack={() => setShowMerchantPortal(false)} />
+    return <AuthPage onLogin={handleMerchantLogin} />
   }
 
   return (

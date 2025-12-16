@@ -195,12 +195,19 @@ function App() {
     }, 500)
   }
 
+  // Navigate to merchant login
+  const goToMerchantLogin = () => {
+    window.location.hash = '#/merchant'
+    setCurrentPage('merchant')
+  }
+
   return (
     <div className="flex h-screen bg-gradient-to-br from-blue-50 to-purple-50">
       {/* Sidebar */}
       <Sidebar 
         selectedChat={selectedChat}
         onSelectChat={setSelectedChat}
+        onMerchantLogin={goToMerchantLogin}
       />
       
       {/* Main Content Area */}
