@@ -534,7 +534,7 @@ function BrandIdentity({ onNext, onBack, isSettingsMode = false, initialData = n
   )
 
   return (
-    <div className={`${isSettingsMode ? 'h-[calc(100vh-120px)]' : 'h-screen'} bg-[#1a1a2e] flex items-start justify-center p-4 relative overflow-hidden`}>
+    <div className={`${isSettingsMode ? 'h-[calc(100vh-120px)]' : 'h-screen'} bg-[#1a1a2e] flex items-center justify-center p-4 relative`}>
       {/* Background decoration */}
       {!isSettingsMode && (
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -544,42 +544,43 @@ function BrandIdentity({ onNext, onBack, isSettingsMode = false, initialData = n
       )}
 
       {/* Main Container - Two Column Layout */}
-      <div className="relative w-full max-w-6xl flex gap-8 h-full">
-        {/* Left Side - Form (Scrollable) */}
-        <div className={`flex-1 max-w-2xl overflow-y-auto scrollbar-dark ${isSettingsMode ? 'pr-2' : 'bg-[#252542] rounded-3xl shadow-2xl'}`}>
+      <div className="relative w-full max-w-6xl flex gap-8 h-[calc(100%-2rem)]">
+        {/* Left Side - Form */}
+        <div className={`flex-1 max-w-2xl max-h-full flex flex-col ${isSettingsMode ? '' : 'bg-[#252542] rounded-3xl shadow-2xl overflow-hidden'}`}>
         
-        {/* Header - Hide in settings mode */}
+        {/* Header + Progress (Sticky) - Hide in settings mode */}
         {!isSettingsMode && (
-          <div className="flex items-center justify-center gap-2 py-4 border-b border-white/5">
-            <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-            </svg>
-            <span className="text-white font-semibold tracking-wider text-sm">AGENTIC PLATFORM</span>
-          </div>
-        )}
+          <div className="flex-shrink-0 bg-[#252542]">
+            {/* Header */}
+            <div className="flex items-center justify-center gap-2 py-4 border-b border-white/5">
+              <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+              </svg>
+              <span className="text-white font-semibold tracking-wider text-sm">AGENTIC PLATFORM</span>
+            </div>
 
-        {/* Progress Indicator - Hide in settings mode */}
-        {!isSettingsMode && (
-          <div className="px-8 pt-6">
-            <div className="flex items-center gap-2 mb-2">
+            {/* Progress Indicator */}
+            <div className="px-8 pt-6 pb-4">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-semibold">
-                  1
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-semibold">
+                    1
+                  </div>
+                  <span className="text-white text-sm font-medium">Brand Identity</span>
                 </div>
-                <span className="text-white text-sm font-medium">Brand Identity</span>
-              </div>
-              <div className="flex-1 h-1 bg-gray-700 rounded mx-2">
-                <div className="h-full w-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded"></div>
-              </div>
-              <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 text-sm">
-                2
+                <div className="flex-1 h-1 bg-gray-700 rounded mx-2">
+                  <div className="h-full w-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded"></div>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 text-sm">
+                  2
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Form Content */}
-        <div className={`${isSettingsMode ? 'p-6' : 'p-8'} bg-[#1e1e3f]`}>
+        {/* Form Content (Scrollable) */}
+        <div className={`flex-1 overflow-y-auto scrollbar-hide ${isSettingsMode ? 'p-6' : 'p-8'} bg-[#1e1e3f]`}>
           {!isSettingsMode && (
             <>
               <h2 className="text-2xl font-bold text-white mb-2">Brand Identity</h2>
@@ -1004,8 +1005,8 @@ function BrandIdentity({ onNext, onBack, isSettingsMode = false, initialData = n
         </div>
         </div>
         
-        {/* Right Side - Preview (Sticky) */}
-        <div className="hidden lg:block sticky top-4 h-fit self-start">
+        {/* Right Side - Preview (Vertically Centered) */}
+        <div className="hidden lg:flex items-center justify-center h-full">
           {renderPreviewPanel()}
         </div>
       </div>
