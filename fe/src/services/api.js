@@ -116,6 +116,81 @@ class ApiService {
   isAuthenticated() {
     return !!this.getToken();
   }
+
+  // Merchant API methods
+  async getMerchant() {
+    return this.request('/api/merchant', { method: 'GET' });
+  }
+
+  async updateBrand(brandData) {
+    return this.request('/api/merchant/brand', {
+      method: 'PUT',
+      body: JSON.stringify(brandData),
+    });
+  }
+
+  async updateSettings(settingsData) {
+    return this.request('/api/merchant/settings', {
+      method: 'PUT',
+      body: JSON.stringify(settingsData),
+    });
+  }
+
+  async uploadLogo(logoData) {
+    return this.request('/api/merchant/upload-logo', {
+      method: 'POST',
+      body: JSON.stringify(logoData),
+    });
+  }
+
+  async completeSetup(setupData) {
+    return this.request('/api/merchant/complete-setup', {
+      method: 'POST',
+      body: JSON.stringify(setupData),
+    });
+  }
+
+  // Merchant APIs methods
+  async getMerchantApis() {
+    return this.request('/api/merchant-apis', { method: 'GET' });
+  }
+
+  async createMerchantApi(apiData) {
+    return this.request('/api/merchant-apis', {
+      method: 'POST',
+      body: JSON.stringify(apiData),
+    });
+  }
+
+  async updateMerchantApi(apiType, apiData) {
+    return this.request(`/api/merchant-apis/${apiType}`, {
+      method: 'PUT',
+      body: JSON.stringify(apiData),
+    });
+  }
+
+  async deleteMerchantApi(apiType) {
+    return this.request(`/api/merchant-apis/${apiType}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async bulkCreateMerchantApis(apis) {
+    return this.request('/api/merchant-apis/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ apis }),
+    });
+  }
+
+  // Helper to convert file to base64
+  async fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+  }
 }
 
 // Create a singleton instance

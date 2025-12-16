@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react'
 import { Upload, X, ChevronRight, Image, Plus, Palette } from 'lucide-react'
+import apiService from '../services/api'
 
 const TRENDING_CATEGORIES = [
   '👗 Fashion & Apparel',
@@ -123,7 +124,7 @@ function BrandIdentity({ onNext, onBack }) {
            formData.display_tagline.trim()
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     
     const newErrors = {}
@@ -142,7 +143,21 @@ function BrandIdentity({ onNext, onBack }) {
       return
     }
 
-    onNext(formData)
+    // Convert logo file to base64 for storage
+    let logoBase64 = null
+    if (formData.display_logo instanceof File) {
+      try {
+        logoBase64 = await apiService.fileToBase64(formData.display_logo)
+      } catch (error) {
+        console.error('Error converting logo:', error)
+      }
+    }
+
+    // Pass form data with base64 logo to next step
+    onNext({
+      ...formData,
+      display_logo: logoBase64 || formData.display_logo
+    })
   }
 
   return (

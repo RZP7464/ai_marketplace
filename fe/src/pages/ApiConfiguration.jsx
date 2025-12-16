@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { ChevronRight, ChevronLeft, Plus, X, Code, Search, ShoppingCart, CreditCard, MessageSquare, Ticket } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, X, Code, Search, ShoppingCart, CreditCard, MessageSquare, Ticket, Loader2 } from 'lucide-react'
+import apiService from '../services/api'
 
 const API_CONFIGS = [
   { 
@@ -46,6 +47,8 @@ const METHOD_COLORS = {
 
 function ApiConfiguration({ onNext, onBack, brandData }) {
   const [currentApiIndex, setCurrentApiIndex] = useState(0)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
   const [apiConfigs, setApiConfigs] = useState(
     API_CONFIGS.reduce((acc, api) => ({
       ...acc,
@@ -116,9 +119,29 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
     }
   }
 
-  const handleSubmit = () => {
-    console.log('API Configurations:', apiConfigs)
-    onNext({ brandData, apiConfigs })
+  const handleSubmit = async () => {
+    setIsLoading(true)
+    setError('')
+
+    try {
+      // Call the complete setup API
+      const response = await apiService.completeSetup({
+        brandData,
+        apiConfigs
+      })
+
+      if (response.success) {
+        console.log('Setup completed:', response.data)
+        onNext({ brandData, apiConfigs, setupResult: response.data })
+      } else {
+        setError(response.error || 'Failed to complete setup')
+      }
+    } catch (err) {
+      console.error('Setup error:', err)
+      setError(err.message || 'Something went wrong. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const isLastApi = currentApiIndex === API_CONFIGS.length - 1
@@ -357,22 +380,40 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
             </div>
           </div>
 
+          {/* Error Message */}
+          {error && (
+            <div className="mt-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+
           {/* Main Actions */}
           <div className="flex items-center justify-between pt-6 mt-6 border-t border-gray-700">
             <button
               type="button"
               onClick={onBack}
-              className="px-6 py-3 text-gray-400 hover:text-white transition-colors"
+              disabled={isLoading}
+              className="px-6 py-3 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
             >
               Back to Brand Identity
             </button>
             <button
               type="button"
               onClick={handleSubmit}
-              className="flex items-center gap-2 px-8 py-3 rounded-lg font-semibold bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:shadow-lg hover:shadow-purple-500/25 hover:scale-[1.02] transition-all duration-300"
+              disabled={isLoading}
+              className="flex items-center gap-2 px-8 py-3 rounded-lg font-semibold bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:shadow-lg hover:shadow-purple-500/25 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Complete Setup
-              <ChevronRight className="w-5 h-5" />
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  Complete Setup
+                  <ChevronRight className="w-5 h-5" />
+                </>
+              )}
             </button>
           </div>
         </div>

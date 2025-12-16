@@ -1,14 +1,18 @@
 import React, { useState } from 'react'
+import apiService from '../services/api'
 
 function AuthPage({ onLogin }) {
   const [activeTab, setActiveTab] = useState('login')
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    name: ''
   })
   const [rememberMe, setRememberMe] = useState(false)
   const [errors, setErrors] = useState({})
+  const [isLoading, setIsLoading] = useState(false)
+  const [apiError, setApiError] = useState('')
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -46,12 +50,35 @@ function AuthPage({ onLogin }) {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    if (validateForm()) {
-      // Pass user data and whether it's a signup
+    setApiError('')
+    
+    if (!validateForm()) return
+
+    setIsLoading(true)
+    
+    try {
       const isSignup = activeTab === 'signup'
-      onLogin({ email: formData.email }, isSignup)
+      
+      if (isSignup) {
+        // For signup, we need merchantId - for now create a flow that handles this
+        // In production, you might create merchant first or use a different flow
+        onLogin({ email: formData.email, name: formData.name }, true)
+      } else {
+        // Login with API
+        const response = await apiService.login(formData.email, formData.password)
+        
+        if (response.success) {
+          onLogin(response.data.user, false)
+        } else {
+          setApiError(response.error || 'Login failed')
+        }
+      }
+    } catch (error) {
+      setApiError(error.message || 'Something went wrong. Please try again.')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -226,11 +253,18 @@ function AuthPage({ onLogin }) {
                     {errors.password && <p className="text-red-400 text-xs mt-1">{errors.password}</p>}
                   </div>
 
+                  {apiError && (
+                    <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
+                      {apiError}
+                    </div>
+                  )}
+
                   <button
                     type="submit"
-                    className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300 hover:scale-[1.02]"
+                    disabled={isLoading}
+                    className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Log In
+                    {isLoading ? 'Logging in...' : 'Log In'}
                   </button>
 
                   <div className="flex items-center justify-between text-sm">
@@ -290,11 +324,18 @@ function AuthPage({ onLogin }) {
                     {errors.confirmPassword && <p className="text-red-400 text-xs mt-1">{errors.confirmPassword}</p>}
                   </div>
 
+                  {apiError && (
+                    <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
+                      {apiError}
+                    </div>
+                  )}
+
                   <button
                     type="submit"
-                    className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300 hover:scale-[1.02]"
+                    disabled={isLoading}
+                    className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Sign Up
+                    {isLoading ? 'Creating Account...' : 'Sign Up'}
                   </button>
 
                   <p className="text-gray-500 text-xs text-center">

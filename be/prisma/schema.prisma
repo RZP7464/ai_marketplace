@@ -19,6 +19,9 @@ model Merchant {
   // Merchant profile fields (signup page)
   displayName     String?          @map("display_name")
   logo            String?          // Logo URL
+  tagline         String?          // Brand tagline
+  welcomeMessage  String?          @map("welcome_message") // Welcome message for customers
+  categories      Json?            // Array of categories
   description     String?          // Business description
   website         String?          // Merchant website URL
   phone           String?          // Contact phone
@@ -65,15 +68,18 @@ model Api {
 }
 
 model DynamicSettings {
-  color      String?
-  icon       String?
-  header     String?
-  footer     String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  id         Int      @id @default(autoincrement())
-  merchantId Int      @unique @map("merchant_id")
-  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  color          String?
+  icon           String?
+  header         String?
+  footer         String?
+  primaryColor   String?  @map("primary_color")   // Primary brand color
+  secondaryColor String?  @map("secondary_color") // Secondary brand color
+  accentColor    String?  @map("accent_color")    // Accent color
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  id             Int      @id @default(autoincrement())
+  merchantId     Int      @unique @map("merchant_id")
+  merchant       Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
 
   @@map("dynamic_settings")
 }
