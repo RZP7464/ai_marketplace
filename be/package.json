@@ -6,9 +6,9 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "prisma:generate": "node node_modules/prisma/build/index.js generate",
-    "prisma:migrate": "node node_modules/prisma/build/index.js migrate dev",
-    "prisma:studio": "node node_modules/prisma/build/index.js studio"
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
