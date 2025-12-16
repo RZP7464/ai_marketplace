@@ -1,16 +1,33 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { ShoppingBag, MessageSquare, X, Plus, Minus, Send } from 'lucide-react'
 import SidebarProfessional from './components/SidebarProfessional'
 import AuthPage from './pages/AuthPage'
 
 function AppProfessional() {
+  // Check if current path is /login or /merchant
+  const isLoginRoute = () => {
+    const path = window.location.pathname
+    return path === '/login' || path === '/merchant'
+  }
+  
   const [selectedChat, setSelectedChat] = useState(null)
   const [cart, setCart] = useState([])
   const [messages, setMessages] = useState([])
   const [showProducts, setShowProducts] = useState(false)
   const [showCart, setShowCart] = useState(false)
-  const [showMerchantPortal, setShowMerchantPortal] = useState(false)
+  const [showMerchantPortal, setShowMerchantPortal] = useState(isLoginRoute())
   const [searchQuery, setSearchQuery] = useState('')
+  
+  // Listen for URL changes
+  useEffect(() => {
+    const handleRouteChange = () => {
+      setShowMerchantPortal(isLoginRoute())
+    }
+    window.addEventListener('popstate', handleRouteChange)
+    return () => {
+      window.removeEventListener('popstate', handleRouteChange)
+    }
+  }, [])
   
   const [products] = useState([
     {
@@ -110,9 +127,16 @@ function AppProfessional() {
 
   // Handle merchant login
   const handleMerchantLogin = (userData) => {
-    // For now, just show success and go back
+    // For now, just show success and go back to main page
     alert('Login successful! Merchant dashboard coming soon.')
+    window.history.pushState({}, '', '/')
     setShowMerchantPortal(false)
+  }
+
+  // Navigate to login page
+  const goToLogin = () => {
+    window.history.pushState({}, '', '/login')
+    setShowMerchantPortal(true)
   }
 
   if (showMerchantPortal) {
@@ -125,7 +149,7 @@ function AppProfessional() {
       <SidebarProfessional 
         selectedChat={selectedChat}
         onSelectChat={setSelectedChat}
-        onMerchantLogin={() => setShowMerchantPortal(true)}
+        onMerchantLogin={goToLogin}
       />
       
       {/* Main Content */}
