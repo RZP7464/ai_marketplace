@@ -49,8 +49,9 @@ function AuthPage({ onLogin }) {
   const handleSubmit = (e) => {
     e.preventDefault()
     if (validateForm()) {
-      // Simulate login/signup
-      onLogin({ email: formData.email })
+      // Pass user data and whether it's a signup
+      const isSignup = activeTab === 'signup'
+      onLogin({ email: formData.email }, isSignup)
     }
   }
 
