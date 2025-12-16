@@ -158,7 +158,7 @@ router.post("/complete-setup", authenticateToken, async (req, res) => {
         where: { id: merchantId },
         data: {
           displayName: brandData.display_name,
-          logo: brandData.display_logo, // This should be a URL after upload
+          logo: typeof brandData.display_logo === 'string' ? brandData.display_logo : null,
           tagline: brandData.display_tagline,
           welcomeMessage: brandData.display_message,
           categories: brandData.display_category,

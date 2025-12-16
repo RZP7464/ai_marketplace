@@ -183,6 +183,114 @@ router.post('/register', async (req, res) => {
   }
 });
 
+// POST /api/auth/merchant-register - Register new merchant (no auth required)
+router.post('/merchant-register', async (req, res) => {
+  try {
+    const { name, email, password, businessName, slug } = req.body;
+
+    // Validate input
+    if (!name || !email || !password || !businessName) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Name, email, password, and businessName are required' 
+      });
+    }
+
+    // Check if merchant email already exists
+    const existingMerchant = await prisma.merchant.findUnique({
+      where: { email }
+    });
+
+    if (existingMerchant) {
+      return res.status(409).json({ 
+        success: false,
+        error: 'Merchant with this email already exists' 
+      });
+    }
+
+    // Generate slug from business name if not provided
+    const merchantSlug = slug || businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+    // Check if slug exists
+    const existingSlug = await prisma.merchant.findUnique({
+      where: { slug: merchantSlug }
+    });
+
+    if (existingSlug) {
+      return res.status(409).json({ 
+        success: false,
+        error: 'Business name already taken. Please choose a different name.' 
+      });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create merchant and user in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Create merchant
+      const merchant = await tx.merchant.create({
+        data: {
+          name: businessName,
+          email,
+          slug: merchantSlug,
+          type: 'general',
+          displayName: businessName
+        }
+      });
+
+      // Create user for the merchant
+      const user = await tx.user.create({
+        data: {
+          name,
+          email,
+          password: hashedPassword,
+          merchantId: merchant.id
+        }
+      });
+
+      return { merchant, user };
+    });
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        userId: result.user.id, 
+        email: result.user.email,
+        merchantId: result.merchant.id 
+      },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
+    );
+
+    res.status(201).json({
+      success: true,
+      data: {
+        token,
+        user: {
+          id: result.user.id,
+          name: result.user.name,
+          email: result.user.email
+        },
+        merchant: {
+          id: result.merchant.id,
+          name: result.merchant.name,
+          slug: result.merchant.slug,
+          email: result.merchant.email
+        }
+      },
+      message: 'Merchant registered successfully'
+    });
+
+  } catch (error) {
+    console.error('Merchant registration error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Internal server error' 
+    });
+  }
+});
+
 // GET /api/auth/me - Get current user (protected route example)
 router.get('/me', async (req, res) => {
   try {
