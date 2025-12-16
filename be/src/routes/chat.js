@@ -14,7 +14,7 @@ const router = express.Router();
 router.post('/public/:merchantSlug', async (req, res) => {
   try {
     const { merchantSlug } = req.params;
-    const { message, sessionId } = req.body;
+    const { message, sessionId: clientSessionId } = req.body;
 
     if (!message) {
       return res.status(400).json({
@@ -35,46 +35,43 @@ router.post('/public/:merchantSlug', async (req, res) => {
       });
     }
 
-    // Find or create session
-    let session;
-    if (sessionId) {
-      session = await prisma.session.findFirst({
-        where: {
-          id: sessionId,
-          merchantId: merchant.id
-        }
-      });
-    }
+    // Find or create session (using latest session for this merchant or create new)
+    let session = await prisma.session.findFirst({
+      where: { merchantId: merchant.id },
+      orderBy: { createdAt: 'desc' }
+    });
 
     if (!session) {
       session = await prisma.session.create({
         data: {
-          id: sessionId || undefined,
           merchantId: merchant.id
         }
       });
     }
 
     // Save user message
-    await prisma.message.create({
+    await prisma.chat.create({
       data: {
         sessionId: session.id,
-        content: message,
-        sender: 'user'
+        merchantId: merchant.id,
+        message: `user: ${message}`
       }
     });
 
     // Get conversation history
-    const previousMessages = await prisma.message.findMany({
+    const previousChats = await prisma.chat.findMany({
       where: { sessionId: session.id },
       orderBy: { createdAt: 'asc' },
       take: 10 // Last 10 messages for context
     });
 
-    const conversationHistory = previousMessages.map(msg => ({
-      role: msg.sender === 'assistant' ? 'assistant' : 'user',
-      content: msg.content
-    }));
+    const conversationHistory = previousChats.map(chat => {
+      const isUser = chat.message.startsWith('user:');
+      return {
+        role: isUser ? 'user' : 'assistant',
+        content: isUser ? chat.message.replace('user: ', '') : chat.message.replace('assistant: ', '')
+      };
+    });
 
     // Get AI response using merchant's AI service (with Gemini fallback)
     const aiResponse = await aiService.chat(merchant.id, message, conversationHistory);
@@ -82,15 +79,11 @@ router.post('/public/:merchantSlug', async (req, res) => {
     // Save assistant message
     const responseText = aiResponse.response || aiResponse.message || 'Sorry, I could not generate a response.';
     
-    await prisma.message.create({
+    await prisma.chat.create({
       data: {
         sessionId: session.id,
-        content: responseText,
-        sender: 'assistant',
-        metadata: {
-          functionCalls: aiResponse.functionCalls || [],
-          functionResults: aiResponse.functionResults || []
-        }
+        merchantId: merchant.id,
+        message: `assistant: ${responseText}`
       }
     });
 

@@ -95,35 +95,34 @@ class MCPService {
     const properties = {};
     const required = [];
 
-    // Extract parameters from payload
-    if (payload && typeof payload === 'object') {
-      Object.entries(payload).forEach(([key, value]) => {
-        properties[key] = {
-          type: this.inferType(value),
-          description: config.parameters?.[key]?.description || `${key} parameter`
-        };
+    // Only extract actual input parameters, not internal config
+    // Skip internal fields like url, method, headers, params, body, name, description
+    const internalFields = ['url', 'method', 'headers', 'params', 'body', 'name', 'description'];
 
-        // Mark as required if specified in config
-        if (config.parameters?.[key]?.required) {
-          required.push(key);
+    // Extract query parameters as inputs (from params array)
+    if (payload.params && Array.isArray(payload.params)) {
+      payload.params.forEach(param => {
+        if (param.key && param.value) {
+          // Check if value contains placeholder like {{search_query}}
+          const placeholderMatch = param.value.match(/\{\{(\w+)\}\}/);
+          if (placeholderMatch) {
+            const paramName = placeholderMatch[1];
+            properties[paramName] = {
+              type: 'string',
+              description: `${param.key} parameter`
+            };
+            required.push(paramName);
+          }
         }
       });
     }
 
-    // Add any additional parameters from config
-    if (config.parameters) {
-      Object.entries(config.parameters).forEach(([key, param]) => {
-        if (!properties[key]) {
-          properties[key] = {
-            type: param.type || 'string',
-            description: param.description || `${key} parameter`
-          };
-
-          if (param.required) {
-            required.push(key);
-          }
-        }
-      });
+    // If no dynamic params found, add a generic query parameter
+    if (Object.keys(properties).length === 0) {
+      properties['query'] = {
+        type: 'string',
+        description: 'Search query or input'
+      };
     }
 
     return { properties, required };
