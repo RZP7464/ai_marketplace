@@ -1,81 +1,74 @@
 const express = require('express');
 const mcpService = require('../services/mcpService');
+const mcpStreamService = require('../services/mcpStreamService');
 
 const router = express.Router();
 
 /**
- * MCP Server endpoint for a specific merchant
- * GET /api/mcp/merchants/:merchantId
- * 
- * This endpoint implements the Model Context Protocol (MCP)
- * It exposes all merchant's APIs as callable tools
+ * Get all available MCP servers (one per merchant)
+ * GET /api/mcp/servers
  */
-router.get('/merchants/:merchantId', async (req, res) => {
+router.get('/servers', async (req, res) => {
+  try {
+    const servers = await mcpStreamService.getAllMCPServers();
+
+    res.json({
+      success: true,
+      count: servers.length,
+      servers
+    });
+  } catch (error) {
+    console.error('Error listing MCP servers:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * SSE Stream endpoint - Main MCP protocol endpoint
+ * GET /api/mcp/merchants/:merchantId/stream
+ * 
+ * This is the primary endpoint for MCP clients to connect to
+ * Uses Server-Sent Events for real-time communication
+ */
+router.get('/merchants/:merchantId/stream', async (req, res) => {
   const { merchantId } = req.params;
 
   try {
-    // Set headers for Server-Sent Events (SSE)
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // Validate merchant
+    await mcpStreamService.validateMerchant(merchantId);
 
-    // Get merchant tools
-    const { merchant, tools } = await mcpService.getMerchantTools(merchantId);
+    // Initialize SSE stream
+    const stream = mcpStreamService.initializeStream(res, merchantId);
 
-    // Send initial MCP server info
-    const serverInfo = {
-      jsonrpc: '2.0',
-      method: 'server/info',
-      params: {
-        name: `${merchant.name} MCP Server`,
-        version: '1.0.0',
-        description: `Dynamic MCP server for ${merchant.name} with ${tools.length} tools`,
-        merchant: {
-          id: merchant.id,
-          name: merchant.name,
-          slug: merchant.slug
-        },
-        capabilities: {
-          tools: true,
-          resources: false,
-          prompts: false
-        }
-      }
-    };
-
-    res.write(`data: ${JSON.stringify(serverInfo)}\n\n`);
+    // Send server info
+    const serverInfo = await mcpStreamService.handleInitialize(merchantId);
+    stream.send('server-info', serverInfo);
 
     // Send tools list
-    const toolsList = {
-      jsonrpc: '2.0',
-      method: 'tools/list',
-      params: {
-        tools: tools.map(tool => ({
-          name: tool.name,
-          description: tool.description,
-          inputSchema: tool.inputSchema
-        }))
-      }
-    };
+    const toolsList = await mcpStreamService.handleToolsList(merchantId);
+    stream.send('tools-list', toolsList);
 
-    res.write(`data: ${JSON.stringify(toolsList)}\n\n`);
-
-    // Keep connection alive
-    const keepAlive = setInterval(() => {
-      res.write(': keepalive\n\n');
+    // Keep connection alive with heartbeat
+    const heartbeat = setInterval(() => {
+      stream.send('heartbeat', { 
+        timestamp: new Date().toISOString(),
+        status: 'connected'
+      });
     }, 30000);
 
     // Handle client disconnect
     req.on('close', () => {
-      clearInterval(keepAlive);
-      res.end();
+      clearInterval(heartbeat);
+      stream.close();
+      console.log(`MCP stream closed for merchant ${merchantId}`);
     });
 
   } catch (error) {
-    console.error('MCP Server Error:', error);
+    console.error('MCP Stream Error:', error);
     res.status(500).json({
-      jsonrpc: '2.0',
       error: {
         code: -32603,
         message: error.message
@@ -154,35 +147,18 @@ router.post('/merchants/:merchantId/tools/:toolName', async (req, res) => {
 });
 
 /**
- * Get MCP server info for a merchant
+ * Get MCP server info and metadata for a merchant
  * GET /api/mcp/merchants/:merchantId/info
  */
 router.get('/merchants/:merchantId/info', async (req, res) => {
   const { merchantId } = req.params;
 
   try {
-    const { merchant, tools } = await mcpService.getMerchantTools(merchantId);
+    const metadata = await mcpStreamService.getMCPServerMetadata(merchantId);
 
     res.json({
       success: true,
-      server: {
-        name: `${merchant.name} MCP Server`,
-        version: '1.0.0',
-        merchant: {
-          id: merchant.id,
-          name: merchant.name,
-          slug: merchant.slug
-        },
-        capabilities: {
-          tools: true,
-          resources: false,
-          prompts: false
-        },
-        toolsCount: tools.length,
-        endpoint: `/api/mcp/merchants/${merchantId}`,
-        toolsEndpoint: `/api/mcp/merchants/${merchantId}/tools`,
-        executeEndpoint: `/api/mcp/merchants/${merchantId}/tools/:toolName`
-      }
+      ...metadata
     });
   } catch (error) {
     console.error('Error getting MCP info:', error);
@@ -198,66 +174,24 @@ router.get('/merchants/:merchantId/info', async (req, res) => {
  * POST /api/mcp/merchants/:merchantId/rpc
  * 
  * Handles JSON-RPC 2.0 requests for MCP protocol
+ * Body: {
+ *   "jsonrpc": "2.0",
+ *   "method": "initialize|tools/list|tools/call",
+ *   "params": {...},
+ *   "id": 1
+ * }
  */
 router.post('/merchants/:merchantId/rpc', async (req, res) => {
   const { merchantId } = req.params;
-  const { method, params, id } = req.body;
 
   try {
-    let result;
+    // Validate merchant
+    await mcpStreamService.validateMerchant(merchantId);
 
-    switch (method) {
-      case 'server/info': {
-        const { merchant, tools } = await mcpService.getMerchantTools(merchantId);
-        result = {
-          name: `${merchant.name} MCP Server`,
-          version: '1.0.0',
-          merchant,
-          capabilities: {
-            tools: true,
-            resources: false,
-            prompts: false
-          },
-          toolsCount: tools.length
-        };
-        break;
-      }
+    // Handle JSON-RPC request
+    const result = await mcpStreamService.handleJsonRpcRequest(merchantId, req.body);
 
-      case 'tools/list': {
-        const { tools } = await mcpService.getMerchantTools(merchantId);
-        result = {
-          tools: tools.map(tool => ({
-            name: tool.name,
-            description: tool.description,
-            inputSchema: tool.inputSchema
-          }))
-        };
-        break;
-      }
-
-      case 'tools/call': {
-        const { name: toolName, arguments: args } = params;
-        result = await mcpService.executeTool(merchantId, toolName, args);
-        break;
-      }
-
-      default:
-        return res.status(400).json({
-          jsonrpc: '2.0',
-          error: {
-            code: -32601,
-            message: `Method not found: ${method}`
-          },
-          id
-        });
-    }
-
-    res.json({
-      jsonrpc: '2.0',
-      result,
-      id
-    });
-
+    res.json(result);
   } catch (error) {
     console.error('JSON-RPC Error:', error);
     res.status(500).json({
@@ -266,10 +200,34 @@ router.post('/merchants/:merchantId/rpc', async (req, res) => {
         code: -32603,
         message: error.message
       },
-      id
+      id: req.body.id
+    });
+  }
+});
+
+/**
+ * Health check for MCP server
+ * GET /api/mcp/health
+ */
+router.get('/health', async (req, res) => {
+  try {
+    const servers = await mcpStreamService.getAllMCPServers();
+    
+    res.json({
+      success: true,
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      mcpServers: servers.length,
+      protocol: 'MCP over HTTP-SSE',
+      version: '1.0.0'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      status: 'unhealthy',
+      error: error.message
     });
   }
 });
 
 module.exports = router;
-
