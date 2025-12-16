@@ -1,6 +1,7 @@
 const express = require('express');
 const mcpService = require('../services/mcpService');
 const mcpStreamService = require('../services/mcpStreamService');
+const prisma = require('../lib/prisma');
 
 const router = express.Router();
 
@@ -23,6 +24,68 @@ router.get('/servers', async (req, res) => {
       success: false,
       error: error.message
     });
+  }
+});
+
+/**
+ * Generate Cursor IDE MCP configuration for all merchants
+ * GET /api/mcp/cursor-config
+ */
+router.get('/cursor-config', async (req, res) => {
+  try {
+    const merchants = await prisma.merchant.findMany({
+      orderBy: { id: 'asc' },
+      include: {
+        apis: true
+      }
+    });
+
+    const mcpServers = {};
+    const baseUrl = process.env.API_BASE_URL || 'http://localhost:3001';
+    const wrapperPath = require('path').resolve(__dirname, '../../mcp-client-wrapper.js');
+    
+    for (const merchant of merchants) {
+      // Only include merchants with APIs configured
+      if (merchant.apis && merchant.apis.length > 0) {
+        const serverName = merchant.slug.replace(/-/g, '_');
+        mcpServers[serverName] = {
+          command: "node",
+          args: [
+            wrapperPath,
+            merchant.id.toString()
+          ],
+          env: {
+            MERCHANT_ID: merchant.id.toString(),
+            MERCHANT_NAME: merchant.name,
+            MERCHANT_SLUG: merchant.slug,
+            API_BASE_URL: baseUrl
+          }
+        };
+      }
+    }
+
+    const config = {
+      mcpServers
+    };
+
+    res.json({
+      success: true,
+      config,
+      instructions: [
+        "1. Copy the 'mcpServers' object from the config below",
+        "2. Open Cursor IDE Settings (Cmd/Ctrl + ,)",
+        "3. Search for 'mcp' in settings",
+        "4. Click 'Edit in settings.json'",
+        "5. Add or merge the mcpServers configuration",
+        "6. Save and restart Cursor IDE",
+        "7. Test by typing '@' in Cursor chat and selecting a merchant"
+      ],
+      merchantCount: Object.keys(mcpServers).length,
+      baseUrl
+    });
+  } catch (error) {
+    console.error('Error generating cursor config:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

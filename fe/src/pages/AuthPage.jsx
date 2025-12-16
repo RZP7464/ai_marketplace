@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import apiService from '../services/api'
+import CursorConfigModal from '../components/CursorConfigModal'
 
 function AuthPage({ onLogin }) {
   const [activeTab, setActiveTab] = useState('login')
@@ -13,6 +14,7 @@ function AuthPage({ onLogin }) {
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState('')
+  const [showCursorConfig, setShowCursorConfig] = useState(false)
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -345,9 +347,32 @@ function AuthPage({ onLogin }) {
               )}
               </div>
             </form>
+
+            {/* Cursor Config Button */}
+            <div className="mt-6 text-center">
+              <button
+                onClick={() => setShowCursorConfig(true)}
+                className="px-6 py-3 bg-gradient-to-r from-green-500 to-teal-500 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-green-500/25 transition-all duration-300 inline-flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M8 2a1 1 0 000 2h2a1 1 0 100-2H8z" />
+                  <path d="M3 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v6h-4.586l1.293-1.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L10.414 13H15v3a2 2 0 01-2 2H5a2 2 0 01-2-2V5z" />
+                </svg>
+                Copy Cursor MCP Config
+              </button>
+              <p className="text-gray-500 text-xs mt-2">
+                Get MCP configuration for all merchants to use with Cursor IDE
+              </p>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Cursor Config Modal */}
+      <CursorConfigModal 
+        isOpen={showCursorConfig}
+        onClose={() => setShowCursorConfig(false)}
+      />
     </div>
   )
 }
