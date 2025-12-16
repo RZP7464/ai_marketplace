@@ -283,6 +283,38 @@ function AuthPage({ onLogin }) {
                       Forgot Password?
                     </button>
                   </div>
+
+                  {/* Test Credentials */}
+                  <div className="mt-4 p-4 bg-gradient-to-r from-green-500/10 to-teal-500/10 border border-green-500/30 rounded-lg">
+                    <p className="text-green-400 text-xs font-semibold mb-3">🧪 Test Credentials (Click to fill)</p>
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, email: 'tira2@merchant.local', password: 'password123' })}
+                        className="w-full text-left px-3 py-2 bg-white/5 hover:bg-white/10 rounded text-sm transition-colors"
+                      >
+                        <span className="text-purple-400 font-medium">Tira2</span>
+                        <span className="text-gray-500 ml-2">tira2@merchant.local</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, email: 'fashionhub@merchant.local', password: 'password123' })}
+                        className="w-full text-left px-3 py-2 bg-white/5 hover:bg-white/10 rounded text-sm transition-colors"
+                      >
+                        <span className="text-blue-400 font-medium">FashionHub</span>
+                        <span className="text-gray-500 ml-2">fashionhub@merchant.local</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, email: 'techmart@merchant.local', password: 'password123' })}
+                        className="w-full text-left px-3 py-2 bg-white/5 hover:bg-white/10 rounded text-sm transition-colors"
+                      >
+                        <span className="text-orange-400 font-medium">TechMart</span>
+                        <span className="text-gray-500 ml-2">techmart@merchant.local</span>
+                      </button>
+                    </div>
+                    <p className="text-gray-500 text-xs mt-2">Password: password123</p>
+                  </div>
                 </>
               ) : (
                 /* Signup Form */
