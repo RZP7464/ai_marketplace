@@ -622,32 +622,34 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false })
                   
                   {/* URL & Method */}
                   <div className="flex gap-2">
-                    <div className="w-24">
+                    <div className="flex-shrink-0">
                       <label className="block text-gray-400 text-xs mb-1">Method</label>
-                      <select
-                        value={twoFactorConfigs.send_otp.method}
-                        onChange={(e) => update2FAConfig('send_otp', 'method', e.target.value)}
-                        className="w-full px-2 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white focus:outline-none focus:border-purple-500 text-xs"
-                      >
-                        {METHODS.map(method => (
-                          <option key={method} value={method}>{method}</option>
-                        ))}
-                      </select>
+                      <div className={`relative h-[34px] rounded-lg ${METHOD_COLORS[twoFactorConfigs.send_otp.method]}`}>
+                        <select
+                          value={twoFactorConfigs.send_otp.method}
+                          onChange={(e) => update2FAConfig('send_otp', 'method', e.target.value)}
+                          className="h-full pl-3 pr-7 bg-transparent text-white font-semibold text-xs focus:outline-none cursor-pointer appearance-none"
+                        >
+                          {METHODS.map(method => (
+                            <option key={method} value={method} className="bg-[#1e1e3f] text-white">{method}</option>
+                          ))}
+                        </select>
+                        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                          <svg className="w-3 h-3 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                      </div>
                     </div>
                     <div className="flex-1">
                       <label className="block text-gray-400 text-xs mb-1">URL</label>
-                      <div className="flex items-center bg-[#1e1e3f] border border-gray-700 rounded-lg overflow-hidden">
-                        <span className={`px-2 py-2 text-xs font-semibold text-white ${METHOD_COLORS[twoFactorConfigs.send_otp.method]}`}>
-                          {twoFactorConfigs.send_otp.method}
-                        </span>
-                        <input
-                          type="text"
-                          value={twoFactorConfigs.send_otp.url}
-                          onChange={(e) => update2FAConfig('send_otp', 'url', e.target.value)}
-                          placeholder="https://api.example.com/otp/send"
-                          className="flex-1 px-2 py-2 bg-transparent text-white placeholder-gray-500 focus:outline-none text-xs"
-                        />
-                      </div>
+                      <input
+                        type="text"
+                        value={twoFactorConfigs.send_otp.url}
+                        onChange={(e) => update2FAConfig('send_otp', 'url', e.target.value)}
+                        placeholder="https://api.example.com/otp/send"
+                        className="w-full h-[34px] px-3 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-xs"
+                      />
                     </div>
                   </div>
                   
@@ -723,32 +725,34 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false })
                   
                   {/* URL & Method */}
                   <div className="flex gap-2">
-                    <div className="w-24">
+                    <div className="flex-shrink-0">
                       <label className="block text-gray-400 text-xs mb-1">Method</label>
-                      <select
-                        value={twoFactorConfigs.verify_otp.method}
-                        onChange={(e) => update2FAConfig('verify_otp', 'method', e.target.value)}
-                        className="w-full px-2 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white focus:outline-none focus:border-purple-500 text-xs"
-                      >
-                        {METHODS.map(method => (
-                          <option key={method} value={method}>{method}</option>
-                        ))}
-                      </select>
+                      <div className={`relative h-[34px] rounded-lg ${METHOD_COLORS[twoFactorConfigs.verify_otp.method]}`}>
+                        <select
+                          value={twoFactorConfigs.verify_otp.method}
+                          onChange={(e) => update2FAConfig('verify_otp', 'method', e.target.value)}
+                          className="h-full pl-3 pr-7 bg-transparent text-white font-semibold text-xs focus:outline-none cursor-pointer appearance-none"
+                        >
+                          {METHODS.map(method => (
+                            <option key={method} value={method} className="bg-[#1e1e3f] text-white">{method}</option>
+                          ))}
+                        </select>
+                        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                          <svg className="w-3 h-3 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                      </div>
                     </div>
                     <div className="flex-1">
                       <label className="block text-gray-400 text-xs mb-1">URL</label>
-                      <div className="flex items-center bg-[#1e1e3f] border border-gray-700 rounded-lg overflow-hidden">
-                        <span className={`px-2 py-2 text-xs font-semibold text-white ${METHOD_COLORS[twoFactorConfigs.verify_otp.method]}`}>
-                          {twoFactorConfigs.verify_otp.method}
-                        </span>
-                        <input
-                          type="text"
-                          value={twoFactorConfigs.verify_otp.url}
-                          onChange={(e) => update2FAConfig('verify_otp', 'url', e.target.value)}
-                          placeholder="https://api.example.com/otp/verify"
-                          className="flex-1 px-2 py-2 bg-transparent text-white placeholder-gray-500 focus:outline-none text-xs"
-                        />
-                      </div>
+                      <input
+                        type="text"
+                        value={twoFactorConfigs.verify_otp.url}
+                        onChange={(e) => update2FAConfig('verify_otp', 'url', e.target.value)}
+                        placeholder="https://api.example.com/otp/verify"
+                        className="w-full h-[34px] px-3 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-xs"
+                      />
                     </div>
                   </div>
                   
@@ -873,32 +877,34 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false })
 
               {/* URL & Method */}
               <div className="flex gap-3">
-                <div className="w-32">
+                <div className="flex-shrink-0">
                   <label className="block text-gray-400 text-xs mb-2">Method</label>
-                  <select
-                    value={currentConfig.method}
-                    onChange={(e) => updateConfig('method', e.target.value)}
-                    className="w-full px-3 py-2.5 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white focus:outline-none focus:border-purple-500 text-sm"
-                  >
-                    {METHODS.map(method => (
-                      <option key={method} value={method}>{method}</option>
-                    ))}
-                  </select>
+                  <div className={`relative h-[42px] rounded-lg ${METHOD_COLORS[currentConfig.method]}`}>
+                    <select
+                      value={currentConfig.method}
+                      onChange={(e) => updateConfig('method', e.target.value)}
+                      className="h-full pl-4 pr-8 bg-transparent text-white font-semibold text-sm focus:outline-none cursor-pointer appearance-none"
+                    >
+                      {METHODS.map(method => (
+                        <option key={method} value={method} className="bg-[#1e1e3f] text-white">{method}</option>
+                      ))}
+                    </select>
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
                 </div>
                 <div className="flex-1">
                   <label className="block text-gray-400 text-xs mb-2">URL</label>
-                  <div className="flex items-center bg-[#1e1e3f] border border-gray-700 rounded-lg overflow-hidden focus-within:border-purple-500">
-                    <span className={`px-3 py-2.5 text-xs font-semibold text-white ${METHOD_COLORS[currentConfig.method]}`}>
-                      {currentConfig.method}
-                    </span>
-                    <input
-                      type="text"
-                      value={currentConfig.url}
-                      onChange={(e) => updateConfig('url', e.target.value)}
-                      placeholder="https://api.example.com/endpoint"
-                      className="flex-1 px-3 py-2.5 bg-transparent text-white placeholder-gray-500 focus:outline-none text-sm"
-                    />
-                  </div>
+                  <input
+                    type="text"
+                    value={currentConfig.url}
+                    onChange={(e) => updateConfig('url', e.target.value)}
+                    placeholder="https://api.example.com/endpoint"
+                    className="w-full h-[42px] px-4 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-sm"
+                  />
                 </div>
               </div>
 
