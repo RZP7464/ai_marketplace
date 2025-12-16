@@ -4,8 +4,12 @@ import Sidebar from './components/Sidebar'
 import ChatArea from './components/ChatArea'
 import ProductDisplay from './components/ProductDisplay'
 import CommandBar from './components/CommandBar'
+import AuthPage from './pages/AuthPage'
 
 function App() {
+  // Simple hash-based routing for merchant login
+  const [currentPage, setCurrentPage] = useState(window.location.hash === '#/merchant' ? 'merchant' : 'chatbot')
+  const [merchantUser, setMerchantUser] = useState(null)
   const [selectedChat, setSelectedChat] = useState(null)
   const [cart, setCart] = useState([])
   const [messages, setMessages] = useState([])
@@ -101,6 +105,35 @@ function App() {
           : item
       ))
     }
+  }
+
+  // Handle merchant login
+  const handleMerchantLogin = (userData) => {
+    setMerchantUser(userData)
+    // Redirect to merchant dashboard after login
+    window.location.hash = '#/merchant/dashboard'
+    // For now, just go back to chatbot or show dashboard
+    alert('Login successful! Merchant dashboard coming soon.')
+    window.location.hash = ''
+    setCurrentPage('chatbot')
+  }
+
+  // Listen for hash changes
+  React.useEffect(() => {
+    const handleHashChange = () => {
+      if (window.location.hash === '#/merchant') {
+        setCurrentPage('merchant')
+      } else {
+        setCurrentPage('chatbot')
+      }
+    }
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
+  }, [])
+
+  // Show merchant auth page if on merchant route
+  if (currentPage === 'merchant') {
+    return <AuthPage onLogin={handleMerchantLogin} />
   }
 
   const handleCommand = (command) => {
