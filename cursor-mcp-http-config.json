@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "ai-marketplace-fashionhub-http": {
+      "url": "http://localhost:3001/api/mcp/merchants/10/stream",
+      "transport": "sse",
+      "description": "FashionHub via HTTP SSE",
+      "disabled": false
+    },
+    "ai-marketplace-techmart-http": {
+      "url": "http://localhost:3001/api/mcp/merchants/11/stream",
+      "transport": "sse",
+      "description": "TechMart via HTTP SSE",
+      "disabled": false
+    },
+    "ai-marketplace-quickbite-http": {
+      "url": "http://localhost:3001/api/mcp/merchants/12/stream",
+      "transport": "sse",
+      "description": "QuickBite via HTTP SSE",
+      "disabled": false
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "mcpServers": {
+    "ai-marketplace-fashionhub": {
+      "command": "node",
+      "args": [
+        "/Users/himanshu.shekhar/Desktop/workspace/mcp-research/hackthon-rzp/ai_marketplace/be/mcp-client-wrapper.js",
+        "10",
+        "http://localhost:3001"
+      ],
+      "env": {
+        "MERCHANT_ID": "10",
+        "MERCHANT_NAME": "FashionHub",
+        "MERCHANT_SLUG": "fashionhub",
+        "BASE_URL": "http://localhost:3001"
+      },
+      "description": "FashionHub - 4 APIs available (Fashion & Apparel)",
+      "disabled": false
+    },
+    "ai-marketplace-techmart": {
+      "command": "node",
+      "args": [
+        "/Users/himanshu.shekhar/Desktop/workspace/mcp-research/hackthon-rzp/ai_marketplace/be/mcp-client-wrapper.js",
+        "11",
+        "http://localhost:3001"
+      ],
+      "env": {
+        "MERCHANT_ID": "11",
+        "MERCHANT_NAME": "TechMart",
+        "MERCHANT_SLUG": "techmart",
+        "BASE_URL": "http://localhost:3001"
+      },
+      "description": "TechMart - 3 APIs available (Electronics & Gadgets)",
+      "disabled": false
+    },
+    "ai-marketplace-quickbite": {
+      "command": "node",
+      "args": [
+        "/Users/himanshu.shekhar/Desktop/workspace/mcp-research/hackthon-rzp/ai_marketplace/be/mcp-client-wrapper.js",
+        "12",
+        "http://localhost:3001"
+      ],
+      "env": {
+        "MERCHANT_ID": "12",
+        "MERCHANT_NAME": "QuickBite",
+        "MERCHANT_SLUG": "quickbite",
+        "BASE_URL": "http://localhost:3001"
+      },
+      "description": "QuickBite - 3 APIs available (Food Delivery)",
+      "disabled": false
+    }
+  }
+}
+
