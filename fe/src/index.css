@@ -33,6 +33,16 @@
     background: #94a3b8;
   }
 
+  /* Hide scrollbar utility */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
   /* Auth page specific styles */
   .auth-input:focus {
     @apply ring-2 ring-purple-500/50;
