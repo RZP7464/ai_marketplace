@@ -50,6 +50,7 @@ model Credential {
   apis       Api[]
   merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
 
+  @@index([merchantId])
   @@map("credentials")
 }
 
@@ -65,6 +66,9 @@ model Api {
   credential Credential @relation(fields: [authId], references: [id], onDelete: Cascade)
   merchant   Merchant   @relation(fields: [merchantId], references: [id], onDelete: Cascade)
 
+  @@index([merchantId])
+  @@index([merchantId, apiType])
+  @@index([authId])
   @@map("apis")
 }
 
@@ -106,6 +110,7 @@ model User {
   merchantId Int      @map("merchant_id")
   merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
 
+  @@index([merchantId])
   @@map("users")
 }
 
@@ -117,6 +122,8 @@ model Session {
   chats      Chat[]
   merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
 
+  @@index([merchantId])
+  @@index([merchantId, createdAt(sort: Desc)])
   @@map("sessions")
 }
 
@@ -130,6 +137,9 @@ model Chat {
   merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
   session    Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
+  @@index([sessionId])
+  @@index([sessionId, createdAt])
+  @@index([merchantId])
   @@map("chats")
 }
 
