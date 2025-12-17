@@ -153,7 +153,7 @@ const parseCurlCommand = (curlString) => {
   return config
 }
 
-function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, initialApiConfigs = null }) {
+function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, initialApiConfigs = null, initial2FAConfigs = null }) {
   const [currentApiIndex, setCurrentApiIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -205,21 +205,44 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
     }), {})
   })
   
-  // 2FA specific state
-  const [twoFactorConfigs, setTwoFactorConfigs] = useState({
-    send_otp: {
+  // 2FA specific state - use initial values if provided
+  const [twoFactorConfigs, setTwoFactorConfigs] = useState(() => {
+    const defaultSendOtp = {
       url: '',
       method: 'POST',
       headers: [{ key: '', value: '' }],
       params: [{ key: '', value: '' }],
-      body: '{\n  "phone": "{{phone_number}}"\n}'
-    },
-    verify_otp: {
+      body: '{\n  "phone": "{{phone_number}}"\n}',
+      mcpConfig: {
+        toolName: 'send_otp',
+        toolDescription: 'Send OTP to user phone number or email for authentication. Use this when user wants to login, verify identity, or authenticate.',
+        usageHints: ['user wants to login', 'send verification code', 'authenticate user'],
+        parameters: {}
+      }
+    }
+    const defaultVerifyOtp = {
       url: '',
       method: 'POST',
       headers: [{ key: '', value: '' }],
       params: [{ key: '', value: '' }],
-      body: '{\n  "phone": "{{phone_number}}",\n  "otp": "{{otp_code}}"\n}'
+      body: '{\n  "phone": "{{phone_number}}",\n  "otp": "{{otp_code}}"\n}',
+      mcpConfig: {
+        toolName: 'verify_otp',
+        toolDescription: 'Verify OTP code entered by user. Use this after user has received OTP and provides the code to verify.',
+        usageHints: ['user entered otp', 'verify code', 'confirm otp'],
+        parameters: {}
+      }
+    }
+    
+    if (initial2FAConfigs) {
+      return {
+        send_otp: { ...defaultSendOtp, ...initial2FAConfigs.send_otp },
+        verify_otp: { ...defaultVerifyOtp, ...initial2FAConfigs.verify_otp }
+      }
+    }
+    return {
+      send_otp: defaultSendOtp,
+      verify_otp: defaultVerifyOtp
     }
   })
   const [curlTarget, setCurlTarget] = useState(null) // For 2FA: 'send_otp' or 'verify_otp'
@@ -717,6 +740,28 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
                       />
                     </div>
                   )}
+                  
+                  {/* MCP Tool Configuration for Send OTP */}
+                  <MCPToolConfigForm
+                    apiConfig={{
+                      ...twoFactorConfigs.send_otp,
+                      apiType: 'send_otp',
+                      body: (() => {
+                        try {
+                          return twoFactorConfigs.send_otp.body ? JSON.parse(twoFactorConfigs.send_otp.body) : null;
+                        } catch (e) {
+                          return null;
+                        }
+                      })(),
+                      params: twoFactorConfigs.send_otp.params
+                    }}
+                    onChange={(mcpConfig) => {
+                      update2FAConfig('send_otp', 'mcpConfig', mcpConfig);
+                    }}
+                    defaultToolName="send_otp"
+                    defaultDescription="Send OTP to user phone number or email for authentication"
+                    compact={true}
+                  />
                 </div>
 
                 {/* Verify OTP Form */}
@@ -820,6 +865,28 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
                       />
                     </div>
                   )}
+                  
+                  {/* MCP Tool Configuration for Verify OTP */}
+                  <MCPToolConfigForm
+                    apiConfig={{
+                      ...twoFactorConfigs.verify_otp,
+                      apiType: 'verify_otp',
+                      body: (() => {
+                        try {
+                          return twoFactorConfigs.verify_otp.body ? JSON.parse(twoFactorConfigs.verify_otp.body) : null;
+                        } catch (e) {
+                          return null;
+                        }
+                      })(),
+                      params: twoFactorConfigs.verify_otp.params
+                    }}
+                    onChange={(mcpConfig) => {
+                      update2FAConfig('verify_otp', 'mcpConfig', mcpConfig);
+                    }}
+                    defaultToolName="verify_otp"
+                    defaultDescription="Verify OTP code entered by user for authentication"
+                    compact={true}
+                  />
                 </div>
               </div>
               

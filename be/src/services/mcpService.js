@@ -1,23 +1,24 @@
-const prisma = require('../lib/prisma');
-const axios = require('axios');
-const https = require('https');
-const apiParserService = require('./apiParserService');
+const prisma = require("../lib/prisma");
+const axios = require("axios");
+const https = require("https");
+const apiParserService = require("./apiParserService");
 
 class MCPService {
   /**
    * Get all APIs for a merchant and convert them to MCP tool definitions
-   * 
+   *
    * CRITICAL: This method ONLY returns tools for APIs that are:
    * 1. Configured in the database (apis table)
    * 2. Have valid credentials (credential must exist)
    * 3. Belong to the specified merchant
-   * 
+   * 4. Have a valid URL configured (not empty)
+   *
    * If a merchant hasn't configured an API, it will NOT appear as a tool!
    */
   async getMerchantTools(merchantId) {
     try {
       console.log(`\n=== Getting MCP Tools for Merchant ${merchantId} ===`);
-      
+
       // Fetch merchant with their APIs and credentials
       // ONLY includes APIs configured in database for THIS merchant
       const merchant = await prisma.merchant.findUnique({
@@ -27,55 +28,76 @@ class MCPService {
             where: {
               // Additional filter: ensure API has valid configuration
               payload: { not: null },
-              config: { not: null }
+              config: { not: null },
             },
             include: {
-              credential: true
-            }
-          }
-        }
+              credential: true,
+            },
+          },
+        },
       });
 
       if (!merchant) {
-        throw new Error('Merchant not found');
+        throw new Error("Merchant not found");
       }
 
       console.log(`✅ Found merchant: ${merchant.name} (${merchant.slug})`);
-      console.log(`📦 APIs configured in database: ${merchant.apis.length}`);
-      
-      if (merchant.apis.length === 0) {
-        console.log(`⚠️  No APIs configured for merchant ${merchant.name}. No tools will be available.`);
+      console.log(`📦 APIs in database: ${merchant.apis.length}`);
+
+      // Filter out APIs that don't have a valid URL configured
+      const validApis = merchant.apis.filter((api) => {
+        const url = api.payload?.url || api.config?.url || api.config?.endpoint;
+        const hasValidUrl = url && url.trim() !== "";
+
+        if (!hasValidUrl) {
+          console.log(`  ⚠️ Skipping API ${api.apiType}: No URL configured`);
+        }
+        return hasValidUrl;
+      });
+
+      console.log(`📦 APIs with valid URLs: ${validApis.length}`);
+
+      if (validApis.length === 0) {
+        console.log(
+          `⚠️  No valid APIs configured for merchant ${merchant.name}. No tools will be available.`
+        );
         return {
           merchant: {
             id: merchant.id,
             name: merchant.name,
-            slug: merchant.slug
+            slug: merchant.slug,
           },
-          tools: []
+          tools: [],
         };
       }
-      
-      // Log each API configuration found in database
-      merchant.apis.forEach((api, idx) => {
-        console.log(`  ✓ API ${idx + 1}: type=${api.apiType}, name=${api.payload?.name}, hasCredential=${!!api.credential}`);
+
+      // Log each valid API configuration
+      validApis.forEach((api, idx) => {
+        const toolName =
+          api.payload?.mcpConfig?.toolName || api.payload?.name || api.apiType;
+        console.log(
+          `  ✓ API ${idx + 1}: type=${
+            api.apiType
+          }, toolName=${toolName}, hasCredential=${!!api.credential}`
+        );
       });
 
-      // Convert ONLY the configured APIs to MCP tools
-      const tools = merchant.apis.map(api => this.convertApiToTool(api));
+      // Convert ONLY the valid APIs to MCP tools
+      const tools = validApis.map((api) => this.convertApiToTool(api));
 
-      console.log(`🔧 Converted ${tools.length} configured APIs to MCP tools`);
-      console.log(`   Tools available: ${tools.map(t => t.name).join(', ')}`);
+      console.log(`🔧 Converted ${tools.length} valid APIs to MCP tools`);
+      console.log(`   Tools available: ${tools.map((t) => t.name).join(", ")}`);
 
       return {
         merchant: {
           id: merchant.id,
           name: merchant.name,
-          slug: merchant.slug
+          slug: merchant.slug,
         },
-        tools
+        tools,
       };
     } catch (error) {
-      console.error('❌ Error fetching merchant tools:', error);
+      console.error("❌ Error fetching merchant tools:", error);
       throw error;
     }
   }
@@ -91,13 +113,15 @@ class MCPService {
 
     // Check if merchant provided custom MCP configuration
     if (mcpConfig && mcpConfig.toolName) {
-      console.log(`  ✨ Using custom MCP config for tool: ${mcpConfig.toolName}`);
+      console.log(
+        `  ✨ Using custom MCP config for tool: ${mcpConfig.toolName}`
+      );
       return this.convertApiToToolWithConfig(api, mcpConfig);
     }
 
     // Fallback to auto-generation (backward compatible)
     console.log(`  🔄 Auto-generating tool config for: ${api.apiType}`);
-    
+
     // Generate tool name from payload name or API type
     const toolName = payload.name || this.generateToolName(api.apiType, config);
 
@@ -111,17 +135,17 @@ class MCPService {
       name: toolName,
       description,
       inputSchema: {
-        type: 'object',
+        type: "object",
         properties: inputSchema.properties,
-        required: inputSchema.required || []
+        required: inputSchema.required || [],
       },
       metadata: {
         apiId: api.id,
         apiType: api.apiType,
-        method: payload.method || config.method || 'POST',
+        method: payload.method || config.method || "POST",
         endpoint: payload.url || config.url || config.endpoint,
-        authId: api.authId
-      }
+        authId: api.authId,
+      },
     };
   }
 
@@ -136,27 +160,32 @@ class MCPService {
     const toolName = mcpConfig.toolName;
 
     // Build input schema from custom parameter configs
-    const inputSchema = this.generateInputSchemaWithConfig(payload, mcpConfig.parameters || {});
+    const inputSchema = this.generateInputSchemaWithConfig(
+      payload,
+      mcpConfig.parameters || {}
+    );
 
     // Use custom description
-    const description = mcpConfig.toolDescription || this.generateToolDescription(api, payload, inputSchema);
+    const description =
+      mcpConfig.toolDescription ||
+      this.generateToolDescription(api, payload, inputSchema);
 
     return {
       name: toolName,
       description,
       inputSchema: {
-        type: 'object',
+        type: "object",
         properties: inputSchema.properties,
-        required: inputSchema.required || []
+        required: inputSchema.required || [],
       },
       metadata: {
         apiId: api.id,
         apiType: api.apiType,
-        method: payload.method || config.method || 'POST',
+        method: payload.method || config.method || "POST",
         endpoint: payload.url || config.url || config.endpoint,
         authId: api.authId,
-        usageHints: mcpConfig.usageHints || [] // Store usage hints for AI
-      }
+        usageHints: mcpConfig.usageHints || [], // Store usage hints for AI
+      },
     };
   }
 
@@ -171,18 +200,19 @@ class MCPService {
     const detectedParams = this.detectParameters(payload);
 
     // Build schema using custom configs or defaults
-    detectedParams.forEach(param => {
+    detectedParams.forEach((param) => {
       const config = paramConfigs[param.name] || {};
-      
+
       // Build parameter description with examples
       const description = this.buildParamDescription(
-        config.description || this.generateParamDescription(param.name, param.originalKey),
+        config.description ||
+          this.generateParamDescription(param.name, param.originalKey),
         config.examples || []
       );
 
       properties[param.name] = {
-        type: config.type || 'string',
-        description
+        type: config.type || "string",
+        description,
       };
 
       // Check if parameter is required (default true unless explicitly set to false)
@@ -191,13 +221,36 @@ class MCPService {
       }
     });
 
-    // If no parameters detected, add a generic query parameter
+    // If no parameters detected, add default parameters based on API type
     if (Object.keys(properties).length === 0) {
-      properties['query'] = {
-        type: 'string',
-        description: 'User\'s search query, question, or request'
-      };
-      required.push('query');
+      // Get API type from payload to determine appropriate default params
+      const apiType = payload.mcpConfig?.toolName || payload.name || "";
+
+      // Tool-specific default parameters
+      if (apiType.includes("send_otp") || apiType === "send_otp") {
+        properties["phone_number"] = {
+          type: "string",
+          description: "User's phone number to send OTP to (e.g., 9876543210)",
+        };
+        required.push("phone_number");
+      } else if (apiType.includes("verify_otp") || apiType === "verify_otp") {
+        properties["phone_number"] = {
+          type: "string",
+          description: "User's phone number that received the OTP",
+        };
+        properties["otp_code"] = {
+          type: "string",
+          description: "The OTP code entered by user to verify",
+        };
+        required.push("phone_number", "otp_code");
+      } else {
+        // Generic query parameter for other tools
+        properties["query"] = {
+          type: "string",
+          description: "User's search query, question, or request",
+        };
+        required.push("query");
+      }
     }
 
     return { properties, required };
@@ -210,18 +263,42 @@ class MCPService {
     const params = [];
     const seen = new Set();
 
-    // Extract from body template
-    if (payload.body && typeof payload.body === 'object') {
-      Object.entries(payload.body).forEach(([key, value]) => {
-        if (typeof value === 'string' && value.includes('{{')) {
+    // Extract from body template - handle both object and string formats
+    let bodyObj = payload.body;
+
+    // If body is a string, try to parse it as JSON
+    if (typeof payload.body === "string" && payload.body.trim()) {
+      try {
+        bodyObj = JSON.parse(payload.body);
+      } catch (e) {
+        // If not valid JSON, try to extract placeholders from the string directly
+        const matches = payload.body.matchAll(/\{\{(\w+)\}\}/g);
+        for (const match of matches) {
+          const paramName = match[1];
+          if (!seen.has(paramName)) {
+            params.push({
+              name: paramName,
+              source: "body",
+              originalKey: paramName,
+            });
+            seen.add(paramName);
+          }
+        }
+        bodyObj = null; // Skip the object processing below
+      }
+    }
+
+    if (bodyObj && typeof bodyObj === "object") {
+      Object.entries(bodyObj).forEach(([key, value]) => {
+        if (typeof value === "string" && value.includes("{{")) {
           const placeholderMatch = value.match(/\{\{(\w+)\}\}/);
           if (placeholderMatch) {
             const paramName = placeholderMatch[1];
             if (!seen.has(paramName)) {
               params.push({
                 name: paramName,
-                source: 'body',
-                originalKey: key
+                source: "body",
+                originalKey: key,
               });
               seen.add(paramName);
             }
@@ -232,7 +309,7 @@ class MCPService {
 
     // Extract from query parameters
     if (payload.params && Array.isArray(payload.params)) {
-      payload.params.forEach(param => {
+      payload.params.forEach((param) => {
         if (param.key && param.value) {
           const placeholderMatch = param.value.match(/\{\{(\w+)\}\}/);
           if (placeholderMatch) {
@@ -240,8 +317,8 @@ class MCPService {
             if (!seen.has(paramName)) {
               params.push({
                 name: paramName,
-                source: 'query',
-                originalKey: param.key
+                source: "query",
+                originalKey: param.key,
               });
               seen.add(paramName);
             }
@@ -262,7 +339,7 @@ class MCPService {
     }
 
     // Add examples to description
-    const exampleText = examples.map(ex => `"${ex}"`).join(', ');
+    const exampleText = examples.map((ex) => `"${ex}"`).join(", ");
     return `${description} (e.g., ${exampleText})`;
   }
 
@@ -281,28 +358,34 @@ class MCPService {
     const mainParam = params[0];
 
     // Common patterns
-    if (apiType.includes('search') || mainParam?.includes('query') || mainParam?.includes('search')) {
+    if (
+      apiType.includes("search") ||
+      mainParam?.includes("query") ||
+      mainParam?.includes("search")
+    ) {
       return `Search for products or items. Use this when the user wants to find, search, or browse products. Pass the user's search query naturally.`;
     }
 
-    if (apiType.includes('product')) {
+    if (apiType.includes("product")) {
       return `Get product information. Use when user asks about specific products or wants product details.`;
     }
 
-    if (apiType.includes('cart')) {
+    if (apiType.includes("cart")) {
       return `Add items to shopping cart. Use when user wants to buy or add products to cart.`;
     }
 
-    if (apiType.includes('checkout')) {
+    if (apiType.includes("checkout")) {
       return `Proceed to checkout. Use when user is ready to purchase items in their cart.`;
     }
 
-    if (apiType.includes('order')) {
+    if (apiType.includes("order")) {
       return `Manage orders. Use to check order status, history, or details.`;
     }
 
     // Fallback with parameter hints
-    const paramHint = mainParam ? `Takes "${mainParam}" parameter from user query` : '';
+    const paramHint = mainParam
+      ? `Takes "${mainParam}" parameter from user query`
+      : "";
     return `${api.apiType} functionality. ${paramHint}`.trim();
   }
 
@@ -318,8 +401,8 @@ class MCPService {
     // Clean and format API type as tool name
     return apiType
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '');
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
   }
 
   /**
@@ -331,19 +414,27 @@ class MCPService {
 
     // Only extract actual input parameters, not internal config
     // Skip internal fields like url, method, headers, params, body, name, description
-    const internalFields = ['url', 'method', 'headers', 'params', 'body', 'name', 'description'];
+    const internalFields = [
+      "url",
+      "method",
+      "headers",
+      "params",
+      "body",
+      "name",
+      "description",
+    ];
 
     // Extract from body template if it exists
-    if (payload.body && typeof payload.body === 'object') {
+    if (payload.body && typeof payload.body === "object") {
       Object.entries(payload.body).forEach(([key, value]) => {
-        if (typeof value === 'string' && value.includes('{{')) {
+        if (typeof value === "string" && value.includes("{{")) {
           // Extract placeholder: {{query}} or {{search_term}}
           const placeholderMatch = value.match(/\{\{(\w+)\}\}/);
           if (placeholderMatch) {
             const paramName = placeholderMatch[1];
             properties[paramName] = {
-              type: 'string',
-              description: this.generateParamDescription(paramName, key)
+              type: "string",
+              description: this.generateParamDescription(paramName, key),
             };
             required.push(paramName);
           }
@@ -351,7 +442,7 @@ class MCPService {
           // Direct parameter (no placeholder)
           properties[key] = {
             type: this.inferType(value),
-            description: this.generateParamDescription(key, key)
+            description: this.generateParamDescription(key, key),
           };
         }
       });
@@ -359,7 +450,7 @@ class MCPService {
 
     // Extract query parameters as inputs (from params array)
     if (payload.params && Array.isArray(payload.params)) {
-      payload.params.forEach(param => {
+      payload.params.forEach((param) => {
         if (param.key && param.value) {
           // Check if value contains placeholder like {{search_query}}
           const placeholderMatch = param.value.match(/\{\{(\w+)\}\}/);
@@ -367,8 +458,11 @@ class MCPService {
             const paramName = placeholderMatch[1];
             if (!properties[paramName]) {
               properties[paramName] = {
-                type: 'string',
-                description: this.generateParamDescription(paramName, param.key)
+                type: "string",
+                description: this.generateParamDescription(
+                  paramName,
+                  param.key
+                ),
               };
               required.push(paramName);
             }
@@ -379,11 +473,12 @@ class MCPService {
 
     // If no dynamic params found, add a generic query parameter
     if (Object.keys(properties).length === 0) {
-      properties['query'] = {
-        type: 'string',
-        description: 'User\'s search query, question, or request (pass the user message naturally)'
+      properties["query"] = {
+        type: "string",
+        description:
+          "User's search query, question, or request (pass the user message naturally)",
       };
-      required.push('query');
+      required.push("query");
     }
 
     return { properties, required };
@@ -395,32 +490,36 @@ class MCPService {
   generateParamDescription(paramName, originalKey) {
     const name = paramName.toLowerCase();
 
-    if (name.includes('query') || name.includes('search') || name.includes('q')) {
+    if (
+      name.includes("query") ||
+      name.includes("search") ||
+      name.includes("q")
+    ) {
       return 'What the user is searching for or asking about (e.g., "lipstick", "hair oil", etc.)';
     }
 
-    if (name.includes('message') || name.includes('msg')) {
-      return 'User\'s message or query (pass their request naturally)';
+    if (name.includes("message") || name.includes("msg")) {
+      return "User's message or query (pass their request naturally)";
     }
 
-    if (name.includes('term') || name.includes('keyword')) {
-      return 'Search term or keyword from user query';
+    if (name.includes("term") || name.includes("keyword")) {
+      return "Search term or keyword from user query";
     }
 
-    if (name.includes('id')) {
-      return 'Unique identifier';
+    if (name.includes("id")) {
+      return "Unique identifier";
     }
 
-    if (name.includes('name')) {
-      return 'Name or title';
+    if (name.includes("name")) {
+      return "Name or title";
     }
 
-    if (name.includes('category')) {
-      return 'Product category or type';
+    if (name.includes("category")) {
+      return "Product category or type";
     }
 
-    if (name.includes('price')) {
-      return 'Price value or range';
+    if (name.includes("price")) {
+      return "Price value or range";
     }
 
     // Fallback: use the parameter name with better formatting
@@ -431,10 +530,10 @@ class MCPService {
    * Infer JSON Schema type from value
    */
   inferType(value) {
-    if (Array.isArray(value)) return 'array';
-    if (value === null) return 'string';
+    if (Array.isArray(value)) return "array";
+    if (value === null) return "string";
     const type = typeof value;
-    if (type === 'object') return 'object';
+    if (type === "object") return "object";
     return type;
   }
 
@@ -444,18 +543,18 @@ class MCPService {
   async executeTool(merchantId, toolName, args) {
     try {
       console.log(`\n=== Executing Tool: ${toolName} ===`);
-      console.log('Merchant ID:', merchantId);
-      console.log('Args:', args);
-      
+      console.log("Merchant ID:", merchantId);
+      console.log("Args:", args);
+
       // Find the API configuration by tool name in payload.name OR payload.mcpConfig.toolName
       let api = await prisma.api.findFirst({
         where: {
           merchantId: parseInt(merchantId),
-          payload: { path: ['name'], equals: toolName }
+          payload: { path: ["name"], equals: toolName },
         },
         include: {
-          credential: true
-        }
+          credential: true,
+        },
       });
 
       // If not found by payload.name, try payload.mcpConfig.toolName
@@ -463,61 +562,73 @@ class MCPService {
         api = await prisma.api.findFirst({
           where: {
             merchantId: parseInt(merchantId),
-            payload: { path: ['mcpConfig', 'toolName'], equals: toolName }
+            payload: { path: ["mcpConfig", "toolName"], equals: toolName },
           },
           include: {
-            credential: true
-          }
+            credential: true,
+          },
         });
       }
 
       if (!api) {
-        console.log(`Tool '${toolName}' not found. Checking all APIs for merchant...`);
+        console.log(
+          `Tool '${toolName}' not found. Checking all APIs for merchant...`
+        );
         const allApis = await prisma.api.findMany({
-          where: { merchantId: parseInt(merchantId) }
+          where: { merchantId: parseInt(merchantId) },
         });
-        console.log('Available APIs:', allApis.map(a => ({ 
-          apiType: a.apiType, 
-          payloadName: a.payload?.name,
-          mcpToolName: a.payload?.mcpConfig?.toolName 
-        })));
+        console.log(
+          "Available APIs:",
+          allApis.map((a) => ({
+            apiType: a.apiType,
+            payloadName: a.payload?.name,
+            mcpToolName: a.payload?.mcpConfig?.toolName,
+          }))
+        );
         throw new Error(`Tool '${toolName}' not found for merchant`);
       }
 
-      console.log('Found API config:', {
+      console.log("Found API config:", {
         apiType: api.apiType,
         url: api.payload?.url,
-        method: api.payload?.method
+        method: api.payload?.method,
       });
 
       // Prepare API request
       const requestConfig = await this.prepareApiRequest(api, args);
-      console.log('Request config:', {
+      console.log("Request config:", {
         method: requestConfig.method,
         url: requestConfig.url,
         params: requestConfig.params,
-        dataKeys: requestConfig.data ? Object.keys(requestConfig.data) : null
+        dataKeys: requestConfig.data ? Object.keys(requestConfig.data) : null,
       });
 
       // Execute API call
       const response = await axios(requestConfig);
-      console.log('API Response status:', response.status);
-      console.log('API Response data sample:', JSON.stringify(response.data).substring(0, 500));
+      console.log("API Response status:", response.status);
+      console.log(
+        "API Response data sample:",
+        JSON.stringify(response.data).substring(0, 500)
+      );
 
       return {
         success: true,
         data: response.data,
-        status: response.status
+        status: response.status,
       };
     } catch (error) {
-      console.error('Error executing tool:', error.message);
+      console.error("Error executing tool:", error.message);
       if (error.response) {
-        console.error('Error response:', error.response.status, error.response.data);
+        console.error(
+          "Error response:",
+          error.response.status,
+          error.response.data
+        );
       }
       return {
         success: false,
         error: error.message,
-        status: error.response?.status || 500
+        status: error.response?.status || 500,
       };
     }
   }
@@ -532,21 +643,21 @@ class MCPService {
 
     // Build request config
     const requestConfig = {
-      method: payload.method || config.method || 'POST',
+      method: payload.method || config.method || "POST",
       url: payload.url || config.url || config.endpoint,
       headers: {
-        'Content-Type': 'application/json',
-        ...config.headers
+        "Content-Type": "application/json",
+        ...config.headers,
       },
       // For development: ignore SSL certificate errors
-      httpsAgent: new https.Agent({  
-        rejectUnauthorized: false
-      })
+      httpsAgent: new https.Agent({
+        rejectUnauthorized: false,
+      }),
     };
 
     // Add headers from payload if they exist
     if (payload.headers && Array.isArray(payload.headers)) {
-      payload.headers.forEach(h => {
+      payload.headers.forEach((h) => {
         if (h.key && h.value) {
           requestConfig.headers[h.key] = h.value;
         }
@@ -559,12 +670,12 @@ class MCPService {
     }
 
     // Add request body
-    if (['POST', 'PUT', 'PATCH'].includes(requestConfig.method.toUpperCase())) {
+    if (["POST", "PUT", "PATCH"].includes(requestConfig.method.toUpperCase())) {
       requestConfig.data = this.buildRequestBody(api.payload, args, config);
     }
 
     // Add query parameters for GET requests
-    if (requestConfig.method.toUpperCase() === 'GET') {
+    if (requestConfig.method.toUpperCase() === "GET") {
       requestConfig.params = this.buildQueryParams(payload, args);
     }
 
@@ -577,16 +688,24 @@ class MCPService {
    */
   buildQueryParams(payload, args) {
     const params = {};
-    
+
     // Common search parameter keys that should use dynamic query
-    const searchParamKeys = ['q', 'query', 'search', 'keyword', 'term', 'search_term'];
-    
+    const searchParamKeys = [
+      "q",
+      "query",
+      "search",
+      "keyword",
+      "term",
+      "search_term",
+    ];
+
     // Get the dynamic search value from args
-    const searchValue = args.query || args.q || args.search || args.term || args.keyword;
-    
+    const searchValue =
+      args.query || args.q || args.search || args.term || args.keyword;
+
     // Start with params from payload config
     if (payload.params && Array.isArray(payload.params)) {
-      payload.params.forEach(p => {
+      payload.params.forEach((p) => {
         if (p.key && p.value !== undefined) {
           // Check if value is a placeholder like {{query}}
           const placeholderMatch = String(p.value).match(/\{\{(\w+)\}\}/);
@@ -608,10 +727,14 @@ class MCPService {
     }
 
     // If no search param was set but we have a search value, add it
-    const hasSearchParam = searchParamKeys.some(key => params[key] !== undefined);
+    const hasSearchParam = searchParamKeys.some(
+      (key) => params[key] !== undefined
+    );
     if (!hasSearchParam && searchValue) {
       // Try to find the search param key from payload config
-      const searchParam = payload.params?.find(p => searchParamKeys.includes(p.key));
+      const searchParam = payload.params?.find((p) =>
+        searchParamKeys.includes(p.key)
+      );
       if (searchParam) {
         params[searchParam.key] = searchValue;
       } else {
@@ -620,7 +743,7 @@ class MCPService {
       }
     }
 
-    console.log('Built query params:', params, 'from args:', args);
+    console.log("Built query params:", params, "from args:", args);
     return params;
   }
 
@@ -629,31 +752,35 @@ class MCPService {
    */
   addAuthentication(requestConfig, credential, args) {
     switch (credential.authType) {
-      case 'bearer':
-        requestConfig.headers['Authorization'] = `Bearer ${args.token || credential.header}`;
+      case "bearer":
+        requestConfig.headers["Authorization"] = `Bearer ${
+          args.token || credential.header
+        }`;
         break;
-      
-      case 'api_key':
+
+      case "api_key":
         if (credential.header) {
-          const [headerName, headerValue] = credential.header.split(':');
+          const [headerName, headerValue] = credential.header.split(":");
           requestConfig.headers[headerName.trim()] = headerValue.trim();
         }
         break;
-      
-      case 'basic':
+
+      case "basic":
         if (credential.username && credential.password) {
-          const token = Buffer.from(`${credential.username}:${credential.password}`).toString('base64');
-          requestConfig.headers['Authorization'] = `Basic ${token}`;
+          const token = Buffer.from(
+            `${credential.username}:${credential.password}`
+          ).toString("base64");
+          requestConfig.headers["Authorization"] = `Basic ${token}`;
         }
         break;
-      
-      case 'custom':
+
+      case "custom":
         if (credential.header) {
           try {
             const customHeaders = JSON.parse(credential.header);
             Object.assign(requestConfig.headers, customHeaders);
           } catch (e) {
-            console.error('Error parsing custom headers:', e);
+            console.error("Error parsing custom headers:", e);
           }
         }
         break;
@@ -662,22 +789,127 @@ class MCPService {
 
   /**
    * Build request body from payload template and arguments
+   * Preserves static values and only replaces {{placeholders}} with dynamic args
+   * Also supports intelligent field mapping when placeholders aren't used
    */
   buildRequestBody(payload, args, config) {
     if (!payload) return args;
 
-    // Deep clone payload
-    const body = JSON.parse(JSON.stringify(payload));
+    // Get the body template from payload
+    let bodyTemplate = payload.body;
 
-    // Replace placeholders with actual values
-    return this.replacePlaceholders(body, args);
+    // If no body template defined, use args directly
+    if (!bodyTemplate) {
+      console.log("No body template defined, using args directly:", args);
+      return args;
+    }
+
+    // Parse body if it's a string (JSON)
+    if (typeof bodyTemplate === "string") {
+      try {
+        bodyTemplate = JSON.parse(bodyTemplate);
+      } catch (e) {
+        console.error("Error parsing body template as JSON:", e.message);
+        console.log("Body template string:", bodyTemplate);
+        // If it's not valid JSON, try to replace placeholders in the string
+        const result = this.replacePlaceholders(bodyTemplate, args);
+        console.log("Replaced string body:", result);
+        try {
+          return JSON.parse(result);
+        } catch (e2) {
+          return result;
+        }
+      }
+    }
+
+    // Deep clone body template
+    const body = JSON.parse(JSON.stringify(bodyTemplate));
+
+    console.log("Body template before replacement:", body);
+    console.log("Args for replacement:", args);
+
+    // First, replace {{placeholders}} with actual values
+    let result = this.replacePlaceholders(body, args);
+
+    // Then, apply intelligent field mapping for common field names
+    // This handles cases where the body has static values but the arg names differ
+    result = this.applyFieldMapping(result, args);
+
+    console.log("Final request body:", result);
+    return result;
+  }
+
+  /**
+   * Apply intelligent field mapping between arg names and body field names
+   * Maps common variations like phone_number -> mobile, otp_code -> otp
+   */
+  applyFieldMapping(body, args) {
+    if (typeof body !== "object" || body === null) return body;
+
+    // Define field mappings: argName -> possible body field names
+    const fieldMappings = {
+      phone_number: [
+        "mobile",
+        "phone",
+        "phoneNumber",
+        "phone_number",
+        "mobileNumber",
+        "mobile_number",
+        "number",
+      ],
+      otp_code: [
+        "otp",
+        "code",
+        "otpCode",
+        "otp_code",
+        "verificationCode",
+        "verification_code",
+      ],
+      email: ["email", "emailAddress", "email_address", "emailId", "email_id"],
+      query: [
+        "q",
+        "query",
+        "search",
+        "keyword",
+        "searchQuery",
+        "search_query",
+        "term",
+      ],
+      product_id: ["productId", "product_id", "id", "itemId", "item_id"],
+      quantity: ["quantity", "qty", "count", "amount"],
+    };
+
+    // For each arg, check if it maps to a body field
+    for (const [argName, argValue] of Object.entries(args)) {
+      const possibleFields = fieldMappings[argName] || [argName];
+
+      for (const fieldName of possibleFields) {
+        if (body.hasOwnProperty(fieldName)) {
+          // Check if the field has a placeholder or a different value
+          const currentValue = body[fieldName];
+          // Only replace if it's a static value (not a placeholder pattern) or matches a phone/number pattern
+          if (
+            typeof currentValue === "string" &&
+            !currentValue.includes("{{")
+          ) {
+            console.log(
+              `Mapping arg '${argName}' (${argValue}) to body field '${fieldName}'`
+            );
+            body[fieldName] = argValue;
+            break; // Use first matching field
+          }
+        }
+      }
+    }
+
+    return body;
   }
 
   /**
    * Recursively replace placeholders in object
    */
   replacePlaceholders(obj, args) {
-    if (typeof obj === 'string') {
+    if (typeof obj === "string") {
       // Replace {{placeholder}} with actual value
       return obj.replace(/\{\{(\w+)\}\}/g, (match, key) => {
         return args[key] !== undefined ? args[key] : match;
@@ -685,10 +917,10 @@ class MCPService {
     }
 
     if (Array.isArray(obj)) {
-      return obj.map(item => this.replacePlaceholders(item, args));
+      return obj.map((item) => this.replacePlaceholders(item, args));
     }
 
-    if (obj && typeof obj === 'object') {
+    if (obj && typeof obj === "object") {
       const result = {};
       for (const [key, value] of Object.entries(obj)) {
         result[key] = this.replacePlaceholders(value, args);
@@ -701,4 +933,3 @@ class MCPService {
 }
 
 module.exports = new MCPService();
-

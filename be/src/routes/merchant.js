@@ -25,28 +25,28 @@ router.get("/public/:slug", async (req, res) => {
           select: {
             primaryColor: true,
             secondaryColor: true,
-            accentColor: true
-          }
-        }
-      }
+            accentColor: true,
+          },
+        },
+      },
     });
 
     if (!merchant) {
       return res.status(404).json({
         success: false,
-        error: "Merchant not found"
+        error: "Merchant not found",
       });
     }
 
     res.json({
       success: true,
-      data: merchant
+      data: merchant,
     });
   } catch (error) {
     console.error("Get public merchant error:", error);
     res.status(500).json({
       success: false,
-      error: "Internal server error"
+      error: "Internal server error",
     });
   }
 });
@@ -62,8 +62,8 @@ router.get("/", authenticateToken, async (req, res) => {
         dynamicSettings: true,
         apis: {
           include: {
-            credential: true
-          }
+            credential: true,
+          },
         },
         aiConfigurations: true,
         users: {
@@ -71,9 +71,9 @@ router.get("/", authenticateToken, async (req, res) => {
             id: true,
             name: true,
             email: true,
-            createdAt: true
-          }
-        }
+            createdAt: true,
+          },
+        },
       },
     });
 
@@ -211,28 +211,34 @@ router.put("/settings", authenticateToken, async (req, res) => {
 router.post("/complete-setup", async (req, res) => {
   try {
     const { brandData, apiConfigs, email, password, name } = req.body;
-    
+
     // Validate required fields
     if (!brandData || !brandData.display_name) {
       return res.status(400).json({
         success: false,
-        error: 'Brand name is required'
+        error: "Brand name is required",
       });
     }
-    
+
     // Generate unique email and slug if not provided
-    const merchantEmail = email || `${brandData.display_name.toLowerCase().replace(/[^a-z0-9]/g, '')}@merchant.local`;
-    const merchantSlug = brandData.display_name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const merchantPassword = password || 'password123';
+    const merchantEmail =
+      email ||
+      `${brandData.display_name
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "")}@merchant.local`;
+    const merchantSlug = brandData.display_name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-");
+    const merchantPassword = password || "password123";
     const merchantName = name || `${brandData.display_name} Admin`;
-    
+
     // Check if merchant with this slug already exists
     const existingMerchant = await prisma.merchant.findUnique({
-      where: { slug: merchantSlug }
+      where: { slug: merchantSlug },
     });
-    
+
     let finalMerchantId;
-    
+
     if (existingMerchant) {
       // Update existing merchant
       finalMerchantId = existingMerchant.id;
@@ -243,23 +249,23 @@ router.post("/complete-setup", async (req, res) => {
           name: brandData.display_name,
           email: merchantEmail,
           slug: merchantSlug,
-          type: 'general',
-          displayName: brandData.display_name
-        }
+          type: "general",
+          displayName: brandData.display_name,
+        },
       });
       finalMerchantId = newMerchant.id;
-      
+
       // Create default user for this merchant
-      const bcrypt = require('bcryptjs');
+      const bcrypt = require("bcryptjs");
       const hashedPassword = await bcrypt.hash(merchantPassword, 10);
-      
+
       await prisma.user.create({
         data: {
           name: merchantName,
           email: merchantEmail,
           password: hashedPassword,
-          merchantId: finalMerchantId
-        }
+          merchantId: finalMerchantId,
+        },
       });
     }
 
@@ -270,7 +276,10 @@ router.post("/complete-setup", async (req, res) => {
         where: { id: finalMerchantId },
         data: {
           displayName: brandData.display_name,
-          logo: typeof brandData.display_logo === 'string' ? brandData.display_logo : null,
+          logo:
+            typeof brandData.display_logo === "string"
+              ? brandData.display_logo
+              : null,
           tagline: brandData.display_tagline,
           welcomeMessage: brandData.display_message,
           categories: brandData.display_category,
@@ -314,21 +323,37 @@ router.post("/complete-setup", async (req, res) => {
         checkout: "checkout",
         base_prompt: "basesystemprompt",
         coupons: "coupons",
+        send_otp: "send_otp",
+        verify_otp: "verify_otp",
       };
 
       const savedApis = [];
 
       for (const [apiKey, config] of Object.entries(apiConfigs)) {
+        // Skip APIs without valid URLs
+        if (!config.url || config.url.trim() === "") {
+          console.log(`Skipping API ${apiKey}: No URL configured`);
+          continue;
+        }
+
         const apiType = apiTypeMapping[apiKey] || apiKey;
+
+        // Generate tool description from mcpConfig or default
+        const toolDescription =
+          config.mcpConfig?.toolDescription ||
+          `${
+            apiType.charAt(0).toUpperCase() +
+            apiType.slice(1).replace(/_/g, " ")
+          } functionality`;
 
         // Build payload and config from the form data
         const payload = {
           name: apiType, // Tool name for MCP
-          description: `${apiType.charAt(0).toUpperCase() + apiType.slice(1)} functionality`,
+          description: toolDescription,
           url: config.url,
           method: config.method,
-          headers: config.headers.filter((h) => h.key && h.value),
-          params: config.params.filter((p) => p.key && p.value),
+          headers: config.headers?.filter((h) => h.key && h.value) || [],
+          params: config.params?.filter((p) => p.key) || [], // Keep params even with empty values for placeholder support
           body: config.body,
         };
 
@@ -372,24 +397,100 @@ router.post("/complete-setup", async (req, res) => {
         savedApis.push(savedApi);
       }
 
+      // 4b. Process 2FA configurations if provided
+      const { twoFactorConfigs } = req.body;
+      if (twoFactorConfigs) {
+        for (const [configType, config] of Object.entries(twoFactorConfigs)) {
+          // Skip if no URL configured
+          if (!config.url || config.url.trim() === "") {
+            console.log(`Skipping 2FA ${configType}: No URL configured`);
+            continue;
+          }
+
+          const apiType = configType; // send_otp or verify_otp
+
+          // Build 2FA payload
+          const payload = {
+            name: apiType,
+            description:
+              configType === "send_otp"
+                ? "Send OTP for two-factor authentication"
+                : "Verify OTP for two-factor authentication",
+            url: config.url,
+            method: config.method || "POST",
+            headers: config.headers?.filter((h) => h.key && h.value) || [],
+            params: config.params?.filter((p) => p.key) || [],
+            body: config.body,
+            mcpConfig: config.mcpConfig || {
+              toolName: apiType,
+              toolDescription:
+                configType === "send_otp"
+                  ? "Send OTP to user phone/email for authentication"
+                  : "Verify OTP code entered by user",
+              parameters: {
+                phone_number: {
+                  description: "Phone number to send/verify OTP",
+                  type: "string",
+                },
+                ...(configType === "verify_otp"
+                  ? {
+                      otp_code: {
+                        description: "OTP code to verify",
+                        type: "string",
+                      },
+                    }
+                  : {}),
+              },
+            },
+          };
+
+          const apiConfig = { timeout: 30000, retries: 3 };
+
+          // Upsert 2FA API configuration
+          const existingApi = await tx.api.findFirst({
+            where: { merchantId: finalMerchantId, apiType },
+          });
+
+          let savedApi;
+          if (existingApi) {
+            savedApi = await tx.api.update({
+              where: { id: existingApi.id },
+              data: { payload, config: apiConfig, authId: credential.id },
+            });
+          } else {
+            savedApi = await tx.api.create({
+              data: {
+                apiType,
+                payload,
+                config: apiConfig,
+                merchantId: finalMerchantId,
+                authId: credential.id,
+              },
+            });
+          }
+
+          savedApis.push(savedApi);
+        }
+      }
+
       // 5. Create default Gemini AI configuration (if not exists)
       let aiConfig = await tx.aiConfiguration.findFirst({
-        where: { merchantId: finalMerchantId }
+        where: { merchantId: finalMerchantId },
       });
 
       if (!aiConfig && process.env.GEMINI_API_KEY) {
         aiConfig = await tx.aiConfiguration.create({
           data: {
             merchantId: finalMerchantId,
-            provider: 'gemini',
+            provider: "gemini",
             apiKey: process.env.GEMINI_API_KEY,
-            model: process.env.GEMINI_MODEL || 'gemini-2.5-pro',
+            model: process.env.GEMINI_MODEL || "gemini-2.5-pro",
             isActive: true,
             config: {
               temperature: 0.7,
-              maxOutputTokens: 2048
-            }
-          }
+              maxOutputTokens: 2048,
+            },
+          },
         });
       }
 
@@ -452,14 +553,14 @@ router.post("/parse-api", authenticateToken, async (req, res) => {
     if (!curlCommand) {
       return res.status(400).json({
         success: false,
-        error: "curlCommand is required"
+        error: "curlCommand is required",
       });
     }
 
     // Parse curl and generate semantic tool configuration
     const enhancedPayload = await apiParserService.generateEnhancedPayload(
       curlCommand,
-      apiType || 'custom_api'
+      apiType || "custom_api"
     );
 
     // Generate tool schema for MCP
@@ -473,23 +574,22 @@ router.post("/parse-api", authenticateToken, async (req, res) => {
         preview: {
           toolName: enhancedPayload.name,
           description: enhancedPayload.description,
-          parameters: enhancedPayload.parameterMapping.map(p => ({
+          parameters: enhancedPayload.parameterMapping.map((p) => ({
             name: p.semanticName,
             type: p.type,
             description: p.description,
-            required: p.required
-          }))
-        }
-      }
+            required: p.required,
+          })),
+        },
+      },
     });
   } catch (error) {
     console.error("Parse API error:", error);
     res.status(500).json({
       success: false,
-      error: error.message || "Failed to parse API configuration"
+      error: error.message || "Failed to parse API configuration",
     });
   }
 });
 
 module.exports = router;
-

@@ -10,6 +10,7 @@ function MerchantSettings({ onLogout }) {
   const [activeTab, setActiveTab] = useState('brand') // 'brand', 'api', or 'ai'
   const [brandData, setBrandData] = useState(null)
   const [apiConfigs, setApiConfigs] = useState(null)
+  const [twoFactorConfigs, setTwoFactorConfigs] = useState(null)
   const [aiConfig, setAiConfig] = useState(null)
   const [hasChanges, setHasChanges] = useState(false)
   const [saveStatus, setSaveStatus] = useState(null)
@@ -50,6 +51,7 @@ function MerchantSettings({ onLogout }) {
         // Prefill API configs
         if (merchant.apis && merchant.apis.length > 0) {
           const configs = {}
+          const twoFa = {}
           const apiTypeMapping = {
             'search': 'search_item',
             'addtocart': 'add_to_cart',
@@ -59,19 +61,37 @@ function MerchantSettings({ onLogout }) {
           }
 
           merchant.apis.forEach(api => {
-            const configKey = apiTypeMapping[api.apiType] || api.apiType
             const payload = api.payload || {}
             
-            configs[configKey] = {
-              url: payload.url || '',
-              method: payload.method || 'GET',
-              headers: payload.headers || [{ key: '', value: '' }],
-              params: payload.params || [{ key: '', value: '' }],
-              body: payload.body || '',
+            // Handle 2FA APIs separately
+            if (api.apiType === 'send_otp' || api.apiType === 'verify_otp') {
+              twoFa[api.apiType] = {
+                url: payload.url || '',
+                method: payload.method || 'POST',
+                headers: payload.headers?.length > 0 ? payload.headers : [{ key: '', value: '' }],
+                params: payload.params?.length > 0 ? payload.params : [{ key: '', value: '' }],
+                body: payload.body || '',
+                mcpConfig: payload.mcpConfig || null
+              }
+            } else {
+              const configKey = apiTypeMapping[api.apiType] || api.apiType
+              configs[configKey] = {
+                url: payload.url || '',
+                method: payload.method || 'GET',
+                headers: payload.headers?.length > 0 ? payload.headers : [{ key: '', value: '' }],
+                params: payload.params?.length > 0 ? payload.params : [{ key: '', value: '' }],
+                body: payload.body || '',
+                mcpConfig: payload.mcpConfig || null
+              }
             }
           })
 
           setApiConfigs(configs)
+          
+          // Set 2FA configs if found
+          if (Object.keys(twoFa).length > 0) {
+            setTwoFactorConfigs(twoFa)
+          }
         }
 
         // Prefill AI config
@@ -123,6 +143,9 @@ function MerchantSettings({ onLogout }) {
   // Handle API config updates
   const handleApiUpdate = (data) => {
     setApiConfigs(data.apiConfigs)
+    if (data.twoFactorConfigs) {
+      setTwoFactorConfigs(data.twoFactorConfigs)
+    }
     setHasChanges(true)
   }
 
@@ -134,6 +157,7 @@ function MerchantSettings({ onLogout }) {
       const response = await apiService.completeSetup({
         brandData: brandData,
         apiConfigs: apiConfigs || {},
+        twoFactorConfigs: twoFactorConfigs || {},
       })
 
       if (response.success) {
@@ -314,6 +338,7 @@ function MerchantSettings({ onLogout }) {
             brandData={brandData}
             isSettingsMode={true}
             initialApiConfigs={apiConfigs}
+            initial2FAConfigs={twoFactorConfigs}
           />
         )}
 

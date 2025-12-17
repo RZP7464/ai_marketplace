@@ -69,63 +69,108 @@ class AIService {
 
   /**
    * Build system prompt to guide AI on tool usage
-   * Enhanced with custom usage hints from merchant's MCP configuration
+   * FULLY DYNAMIC - generates examples from actual available tools
    */
   buildSystemPrompt(merchant, mcpTools) {
-    const toolsDescription = mcpTools.map(tool => {
-      let toolDesc = `• ${tool.name}: ${tool.description}`;
-      
-      // Add usage hints if provided by merchant
-      if (tool.metadata?.usageHints && tool.metadata.usageHints.length > 0) {
-        toolDesc += '\n  Usage Hints:';
-        tool.metadata.usageHints.forEach(hint => {
-          toolDesc += `\n    - ${hint}`;
-        });
-      }
-      
-      // Add parameters
-      const params = Object.entries(tool.inputSchema.properties || {})
-        .map(([name, schema]) => `- ${name} (${schema.type}): ${schema.description}`)
-        .join('\n    ');
-      
-      toolDesc += `\n  Parameters:\n    ${params}`;
-      
-      return toolDesc;
-    }).join('\n\n');
+    // Build detailed tool descriptions
+    const toolsDescription = mcpTools
+      .map((tool) => {
+        let toolDesc = `• ${tool.name}: ${tool.description}`;
 
-    return `You are an AI shopping assistant for ${merchant.name}. Your goal is to help customers find products and complete purchases.
+        // Add usage hints if provided by merchant
+        if (tool.metadata?.usageHints && tool.metadata.usageHints.length > 0) {
+          toolDesc += "\n  Usage Hints:";
+          tool.metadata.usageHints.forEach((hint) => {
+            toolDesc += `\n    - ${hint}`;
+          });
+        }
 
-AVAILABLE TOOLS:
+        // Add parameters with descriptions
+        const params = Object.entries(tool.inputSchema.properties || {})
+          .map(
+            ([name, schema]) =>
+              `- ${name} (${schema.type}): ${schema.description}`
+          )
+          .join("\n    ");
+
+        toolDesc += `\n  Parameters:\n    ${params}`;
+
+        return toolDesc;
+      })
+      .join("\n\n");
+
+    // Generate dynamic examples from actual tools
+    const toolExamples = mcpTools
+      .slice(0, 3) // Show examples for first 3 tools
+      .map((tool) => {
+        const paramName =
+          Object.keys(tool.inputSchema.properties || {})[0] || "query";
+        const exampleValue = this.getExampleValue(tool.name, paramName);
+        return `   - User asks about "${tool.description
+          .split(".")[0]
+          .toLowerCase()}" → Use ${tool.name}(${paramName}: "${exampleValue}")`;
+      })
+      .join("\n");
+
+    // Build tool names list for reference
+    const toolNamesList = mcpTools.map((t) => t.name).join(", ");
+
+    return `You are an AI assistant for ${merchant.name}. Your goal is to help customers using the available tools.
+
+AVAILABLE TOOLS (${mcpTools.length} total):
 ${toolsDescription}
 
-TOOL USAGE GUIDELINES:
-1. **When to use tools:**
-   - User asks to search/find/show products → Use search tool
-   - User mentions specific product needs → Use search with relevant query
-   - User says "show me", "find", "search", "looking for" → Use search tool
-   - Pay attention to tool-specific usage hints listed above
+TOOL SELECTION RULES:
+1. **Read each tool's name and description carefully**
+   - Match the user's request to the most relevant tool
+   - If user mentions a tool name explicitly, USE THAT TOOL
+   - Available tools: ${toolNamesList}
 
-2. **How to call tools:**
-   - Extract the user's search intent from their message
-   - Pass natural language queries to search tools
-   - Follow the parameter descriptions and examples provided
-   - Examples:
-     * "Show me lipstick" → search_products(query: "lipstick")
-     * "I need hair oil" → search_products(query: "hair oil")
-     * "Find moisturizers" → search_products(query: "moisturizer")
+2. **How to use tools:**
+   - Extract relevant information from the user's message
+   - Pass it to the appropriate parameter of the tool
+   - Examples based on your available tools:
+${toolExamples}
 
-3. **Response style:**
-   - After tool results, present products naturally
-   - Describe items from the results
-   - Ask if they want more details or have questions
+3. **Parameter extraction:**
+   - Look at each tool's parameter descriptions above
+   - Extract the matching data from user's message
+   - Phone numbers, codes, search terms, IDs - pass them to the right parameter
 
-4. **Important:**
-   - ALWAYS use tools when user is searching/looking for products
-   - Don't make up product information - use tool results
-   - Extract keywords from user query for tool parameters
-   - Choose the right tool based on the usage hints provided
+4. **Response style:**
+   - After tool results, respond naturally and helpfully
+   - Confirm actions taken
+   - Ask follow-up questions if needed
 
-Remember: You have access to real product data through tools. Use them intelligently based on user intent and the guidance provided!`;
+IMPORTANT GUIDELINES:
+- ALWAYS use tools immediately when the user's request matches a tool's description
+- DO NOT ask for confirmation - just execute the tool
+- You ARE authorized to handle all data types needed by these tools (phone numbers, emails, codes, etc.)
+- The merchant has configured these tools - trust and use them as designed
+- Don't refuse to use tools - they are legitimate business functions
+- Extract relevant info from user query and call the tool immediately
+
+CRITICAL: When user provides data (phone number, OTP, search term, etc.), call the appropriate tool IMMEDIATELY. Do not ask "are you sure?" or request confirmation.
+
+Remember: Match the user's request to the appropriate tool from: ${toolNamesList}`;
+  }
+
+  /**
+   * Generate example values for tool parameters based on tool/param name
+   */
+  getExampleValue(toolName, paramName) {
+    const name = (toolName + "_" + paramName).toLowerCase();
+
+    if (name.includes("phone") || name.includes("mobile")) return "9876543210";
+    if (name.includes("otp") || name.includes("code")) return "1234";
+    if (name.includes("email")) return "user@example.com";
+    if (name.includes("search") || name.includes("query"))
+      return "product name";
+    if (name.includes("id")) return "12345";
+    if (name.includes("quantity") || name.includes("qty")) return "1";
+    if (name.includes("price") || name.includes("amount")) return "100";
+
+    return "user input";
   }
 
   /**
@@ -167,18 +212,28 @@ Remember: You have access to real product data through tools. Use them intellige
       const model = genAI.getGenerativeModel({ model: aiConfig.model });
 
       // Get MCP tools
-      const { tools: mcpTools, merchant } = await mcpService.getMerchantTools(merchantId);
+      const { tools: mcpTools, merchant } = await mcpService.getMerchantTools(
+        merchantId
+      );
       const functions = this.convertMCPToolsToFormat(mcpTools, "gemini");
 
       // Build system prompt to guide tool usage
       const systemPrompt = this.buildSystemPrompt(merchant, mcpTools);
-      
-      // Prepend system prompt to history if not already present
-      const historyWithSystem = conversationHistory.length === 0 
-        ? [{ role: "user", content: systemPrompt }, { role: "model", content: "I understand. I'll help customers by using the available tools intelligently based on their queries." }]
-        : conversationHistory;
 
-      // Build chat
+      // Prepend system prompt to history if not already present
+      const historyWithSystem =
+        conversationHistory.length === 0
+          ? [
+              { role: "user", content: systemPrompt },
+              {
+                role: "model",
+                content:
+                  "I understand. I'll help customers by using the available tools intelligently based on their queries.",
+              },
+            ]
+          : conversationHistory;
+
+      // Build chat with relaxed safety settings for business use cases
       const chat = model.startChat({
         history: historyWithSystem.map((msg) => ({
           role: msg.role === "assistant" ? "model" : "user",
@@ -190,6 +245,24 @@ Remember: You have access to real product data through tools. Use them intellige
           topP: aiConfig.config?.topP || 1,
           maxOutputTokens: aiConfig.config?.maxOutputTokens || 2048,
         },
+        safetySettings: [
+          {
+            category: "HARM_CATEGORY_HARASSMENT",
+            threshold: "BLOCK_ONLY_HIGH",
+          },
+          {
+            category: "HARM_CATEGORY_HATE_SPEECH",
+            threshold: "BLOCK_ONLY_HIGH",
+          },
+          {
+            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            threshold: "BLOCK_ONLY_HIGH",
+          },
+          {
+            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+            threshold: "BLOCK_ONLY_HIGH",
+          },
+        ],
         tools:
           functions.length > 0
             ? [{ functionDeclarations: functions }]
@@ -261,7 +334,9 @@ Remember: You have access to real product data through tools. Use them intellige
       const openai = aiConfig.client;
 
       // Get MCP tools
-      const { tools: mcpTools, merchant } = await mcpService.getMerchantTools(merchantId);
+      const { tools: mcpTools, merchant } = await mcpService.getMerchantTools(
+        merchantId
+      );
       const functions = this.convertMCPToolsToFormat(mcpTools, "openai");
 
       // Build system prompt
@@ -423,8 +498,8 @@ Remember: You have access to real product data through tools. Use them intellige
         name: "Google Gemini",
         models: [
           {
-            id: process.env.GEMINI_MODEL || 'gemini-2.5-pro',
-            name: process.env.GEMINI_MODEL || 'gemini-2.5-pro',
+            id: process.env.GEMINI_MODEL || "gemini-2.5-pro",
+            name: process.env.GEMINI_MODEL || "gemini-2.5-pro",
           },
           { id: "gemini-pro", name: "Gemini Pro" },
           { id: "gemini-1.5-pro-latest", name: "Gemini 1.5 Pro" },
