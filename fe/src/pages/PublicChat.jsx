@@ -198,12 +198,39 @@ function PublicChat({ merchantSlug }) {
   const secondaryColor = merchantData.dynamicSettings?.secondaryColor || '#60A5FA';
   const accentColor = merchantData.dynamicSettings?.accentColor || '#F472B6';
 
+  // Generate darker versions for background
+  const hexToRgb = (hex) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : { r: 59, g: 130, b: 246 };
+  };
+  
+  const primary = hexToRgb(primaryColor);
+  const secondary = hexToRgb(secondaryColor);
+
   return (
-    <div className="flex h-screen" style={{ background: `linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)` }}>
+    <div 
+      className="flex h-screen" 
+      style={{ 
+        background: `linear-gradient(135deg, 
+          rgb(${Math.floor(primary.r * 0.1)}, ${Math.floor(primary.g * 0.1)}, ${Math.floor(primary.b * 0.15)}) 0%, 
+          rgb(${Math.floor(secondary.r * 0.1)}, ${Math.floor(secondary.g * 0.1)}, ${Math.floor(secondary.b * 0.15)}) 50%, 
+          rgb(${Math.floor(primary.r * 0.08)}, ${Math.floor(primary.g * 0.12)}, ${Math.floor(primary.b * 0.2)}) 100%)` 
+      }}
+    >
       {/* Sidebar - Chat History */}
-      <div className="w-72 border-r border-white/10 flex flex-col" style={{ background: 'rgba(0,0,0,0.3)' }}>
+      <div 
+        className="w-72 border-r flex flex-col" 
+        style={{ 
+          background: `rgba(${primary.r * 0.1}, ${primary.g * 0.1}, ${primary.b * 0.1}, 0.5)`,
+          borderColor: `${primaryColor}20`
+        }}
+      >
         {/* Brand Header */}
-        <div className="p-4 border-b border-white/10">
+        <div className="p-4 border-b" style={{ borderColor: `${primaryColor}30` }}>
           <div className="flex items-center gap-3">
             {merchantData.logo ? (
               <img src={merchantData.logo} alt={merchantData.name} className="w-10 h-10 rounded-lg object-cover" />
@@ -313,9 +340,9 @@ function PublicChat({ merchantSlug }) {
         </div>
 
         {/* Powered By */}
-        <div className="p-4 border-t border-white/10">
+        <div className="p-4 border-t" style={{ borderColor: `${primaryColor}30` }}>
           <p className="text-gray-500 text-xs text-center">
-            Powered by AI Marketplace
+            Powered by <span style={{ color: primaryColor }}>AI Marketplace</span>
           </p>
         </div>
       </div>
@@ -324,8 +351,11 @@ function PublicChat({ merchantSlug }) {
       <div className="flex-1 flex flex-col">
         {/* Header */}
         <header 
-          className="border-b border-white/10 backdrop-blur-md"
-          style={{ background: `linear-gradient(90deg, ${primaryColor}15, ${secondaryColor}15)` }}
+          className="border-b backdrop-blur-md"
+          style={{ 
+            background: `linear-gradient(90deg, ${primaryColor}20, ${secondaryColor}15)`,
+            borderColor: `${primaryColor}30`
+          }}
         >
           <div className="px-6 py-4">
             <div className="flex items-center justify-between">
@@ -458,23 +488,35 @@ function PublicChat({ merchantSlug }) {
         </div>
 
         {/* Input Area */}
-        <div className="border-t border-white/10 p-4" style={{ background: 'rgba(0,0,0,0.3)' }}>
+        <div 
+          className="border-t p-4" 
+          style={{ 
+            background: `rgba(${primary.r * 0.05}, ${primary.g * 0.05}, ${primary.b * 0.1}, 0.8)`,
+            borderColor: `${primaryColor}30`
+          }}
+        >
           <div className="max-w-5xl mx-auto">
             <form onSubmit={handleSendMessage} className="flex gap-3">
               <input
                 type="text"
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
-                placeholder="Search for products, ask questions..."
+                placeholder={`Search ${merchantData.displayName || merchantData.name} products...`}
                 disabled={isLoading}
-                className="flex-1 px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 transition-all disabled:opacity-50"
-                style={{ focusRingColor: primaryColor }}
+                className="flex-1 px-4 py-3 bg-white/10 border rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 transition-all disabled:opacity-50"
+                style={{ 
+                  borderColor: `${primaryColor}40`,
+                  '--tw-ring-color': primaryColor
+                }}
               />
               <button
                 type="submit"
                 disabled={isLoading || !inputMessage.trim()}
-                className="px-6 py-3 text-white rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium"
-                style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
+                className="px-6 py-3 text-white rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium hover:shadow-lg"
+                style={{ 
+                  background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
+                  boxShadow: `0 4px 15px ${primaryColor}40`
+                }}
               >
                 <Send size={18} />
                 Send
@@ -486,8 +528,14 @@ function PublicChat({ merchantSlug }) {
 
       {/* Cart Sidebar */}
       {showCart && (
-        <div className="w-96 border-l border-white/10 flex flex-col" style={{ background: 'rgba(0,0,0,0.4)' }}>
-          <div className="p-4 border-b border-white/10 flex items-center justify-between">
+        <div 
+          className="w-96 border-l flex flex-col" 
+          style={{ 
+            background: `rgba(${primary.r * 0.05}, ${primary.g * 0.05}, ${primary.b * 0.08}, 0.9)`,
+            borderColor: `${primaryColor}30`
+          }}
+        >
+          <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: `${primaryColor}30` }}>
             <h2 className="text-lg font-semibold text-white">Your Cart ({cartItemCount})</h2>
             <button
               onClick={() => setShowCart(false)}
@@ -549,15 +597,18 @@ function PublicChat({ merchantSlug }) {
           </div>
 
           {cart.length > 0 && (
-            <div className="p-4 border-t border-white/10">
+            <div className="p-4 border-t" style={{ borderColor: `${primaryColor}30` }}>
               <div className="flex justify-between items-center mb-4">
                 <span className="text-gray-400">Total</span>
-                <span className="text-xl font-semibold text-white">₹{cartTotal.toLocaleString()}</span>
+                <span className="text-xl font-semibold" style={{ color: primaryColor }}>₹{cartTotal.toLocaleString()}</span>
               </div>
               <button
                 onClick={() => setInputMessage('Proceed to checkout')}
                 className="w-full py-3 text-white rounded-xl font-medium transition-all hover:shadow-lg"
-                style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
+                style={{ 
+                  background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
+                  boxShadow: `0 4px 15px ${primaryColor}40`
+                }}
               >
                 Checkout
               </button>
