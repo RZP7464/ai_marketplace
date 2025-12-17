@@ -68,6 +68,67 @@ class AIService {
   }
 
   /**
+   * Build system prompt to guide AI on tool usage
+   * Enhanced with custom usage hints from merchant's MCP configuration
+   */
+  buildSystemPrompt(merchant, mcpTools) {
+    const toolsDescription = mcpTools.map(tool => {
+      let toolDesc = `• ${tool.name}: ${tool.description}`;
+      
+      // Add usage hints if provided by merchant
+      if (tool.metadata?.usageHints && tool.metadata.usageHints.length > 0) {
+        toolDesc += '\n  Usage Hints:';
+        tool.metadata.usageHints.forEach(hint => {
+          toolDesc += `\n    - ${hint}`;
+        });
+      }
+      
+      // Add parameters
+      const params = Object.entries(tool.inputSchema.properties || {})
+        .map(([name, schema]) => `- ${name} (${schema.type}): ${schema.description}`)
+        .join('\n    ');
+      
+      toolDesc += `\n  Parameters:\n    ${params}`;
+      
+      return toolDesc;
+    }).join('\n\n');
+
+    return `You are an AI shopping assistant for ${merchant.name}. Your goal is to help customers find products and complete purchases.
+
+AVAILABLE TOOLS:
+${toolsDescription}
+
+TOOL USAGE GUIDELINES:
+1. **When to use tools:**
+   - User asks to search/find/show products → Use search tool
+   - User mentions specific product needs → Use search with relevant query
+   - User says "show me", "find", "search", "looking for" → Use search tool
+   - Pay attention to tool-specific usage hints listed above
+
+2. **How to call tools:**
+   - Extract the user's search intent from their message
+   - Pass natural language queries to search tools
+   - Follow the parameter descriptions and examples provided
+   - Examples:
+     * "Show me lipstick" → search_products(query: "lipstick")
+     * "I need hair oil" → search_products(query: "hair oil")
+     * "Find moisturizers" → search_products(query: "moisturizer")
+
+3. **Response style:**
+   - After tool results, present products naturally
+   - Describe items from the results
+   - Ask if they want more details or have questions
+
+4. **Important:**
+   - ALWAYS use tools when user is searching/looking for products
+   - Don't make up product information - use tool results
+   - Extract keywords from user query for tool parameters
+   - Choose the right tool based on the usage hints provided
+
+Remember: You have access to real product data through tools. Use them intelligently based on user intent and the guidance provided!`;
+  }
+
+  /**
    * Convert MCP tools to provider-specific format
    */
   convertMCPToolsToFormat(mcpTools, provider) {
@@ -106,12 +167,20 @@ class AIService {
       const model = genAI.getGenerativeModel({ model: aiConfig.model });
 
       // Get MCP tools
-      const { tools: mcpTools } = await mcpService.getMerchantTools(merchantId);
+      const { tools: mcpTools, merchant } = await mcpService.getMerchantTools(merchantId);
       const functions = this.convertMCPToolsToFormat(mcpTools, "gemini");
+
+      // Build system prompt to guide tool usage
+      const systemPrompt = this.buildSystemPrompt(merchant, mcpTools);
+      
+      // Prepend system prompt to history if not already present
+      const historyWithSystem = conversationHistory.length === 0 
+        ? [{ role: "user", content: systemPrompt }, { role: "model", content: "I understand. I'll help customers by using the available tools intelligently based on their queries." }]
+        : conversationHistory;
 
       // Build chat
       const chat = model.startChat({
-        history: conversationHistory.map((msg) => ({
+        history: historyWithSystem.map((msg) => ({
           role: msg.role === "assistant" ? "model" : "user",
           parts: [{ text: msg.content }],
         })),
@@ -192,11 +261,15 @@ class AIService {
       const openai = aiConfig.client;
 
       // Get MCP tools
-      const { tools: mcpTools } = await mcpService.getMerchantTools(merchantId);
+      const { tools: mcpTools, merchant } = await mcpService.getMerchantTools(merchantId);
       const functions = this.convertMCPToolsToFormat(mcpTools, "openai");
 
-      // Build messages
+      // Build system prompt
+      const systemPrompt = this.buildSystemPrompt(merchant, mcpTools);
+
+      // Build messages with system prompt
       const messages = [
+        { role: "system", content: systemPrompt },
         ...conversationHistory.map((msg) => ({
           role: msg.role === "assistant" ? "assistant" : "user",
           content: msg.content,

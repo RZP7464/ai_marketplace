@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { ChevronRight, ChevronLeft, Plus, X, Code, Search, ShoppingCart, CreditCard, Ticket, Loader2, Terminal, Clipboard, Sparkles, Zap, Edit3, Trash2, Shield, Send, CheckCircle } from 'lucide-react'
 import apiService from '../services/api'
+import MCPToolConfigForm from '../components/MCPToolConfigForm'
 
 const DEFAULT_API_CONFIGS = [
   { 
@@ -1022,6 +1023,25 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
                   />
                 </div>
               )}
+
+              {/* MCP Tool Configuration */}
+              <MCPToolConfigForm
+                apiConfig={{
+                  ...currentConfig,
+                  apiType: currentApi.key,
+                  body: (() => {
+                    try {
+                      return currentConfig.body ? JSON.parse(currentConfig.body) : null;
+                    } catch (e) {
+                      return null;
+                    }
+                  })(),
+                  params: currentConfig.params
+                }}
+                onChange={(mcpConfig) => {
+                  updateConfig('mcpConfig', mcpConfig);
+                }}
+              />
             </div>
           )}
 

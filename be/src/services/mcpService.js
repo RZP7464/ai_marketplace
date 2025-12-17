@@ -82,20 +82,34 @@ class MCPService {
 
   /**
    * Convert API configuration to MCP tool definition
+   * Enhanced to support custom MCP configurations from merchants
    */
   convertApiToTool(api) {
     const config = api.config;
     const payload = api.payload;
+    const mcpConfig = payload.mcpConfig;
 
+    // Check if merchant provided custom MCP configuration
+    if (mcpConfig && mcpConfig.toolName) {
+      console.log(`  ✨ Using custom MCP config for tool: ${mcpConfig.toolName}`);
+      return this.convertApiToToolWithConfig(api, mcpConfig);
+    }
+
+    // Fallback to auto-generation (backward compatible)
+    console.log(`  🔄 Auto-generating tool config for: ${api.apiType}`);
+    
     // Generate tool name from payload name or API type
     const toolName = payload.name || this.generateToolName(api.apiType, config);
 
     // Generate input schema from payload and config
     const inputSchema = this.generateInputSchema(payload, config);
 
+    // Generate intelligent description
+    const description = this.generateToolDescription(api, payload, inputSchema);
+
     return {
       name: toolName,
-      description: payload.description || config.description || `Execute ${api.apiType} API`,
+      description,
       inputSchema: {
         type: 'object',
         properties: inputSchema.properties,
@@ -109,6 +123,187 @@ class MCPService {
         authId: api.authId
       }
     };
+  }
+
+  /**
+   * Convert API to tool using merchant's custom MCP configuration
+   */
+  convertApiToToolWithConfig(api, mcpConfig) {
+    const config = api.config;
+    const payload = api.payload;
+
+    // Use custom tool name
+    const toolName = mcpConfig.toolName;
+
+    // Build input schema from custom parameter configs
+    const inputSchema = this.generateInputSchemaWithConfig(payload, mcpConfig.parameters || {});
+
+    // Use custom description
+    const description = mcpConfig.toolDescription || this.generateToolDescription(api, payload, inputSchema);
+
+    return {
+      name: toolName,
+      description,
+      inputSchema: {
+        type: 'object',
+        properties: inputSchema.properties,
+        required: inputSchema.required || []
+      },
+      metadata: {
+        apiId: api.id,
+        apiType: api.apiType,
+        method: payload.method || config.method || 'POST',
+        endpoint: payload.url || config.url || config.endpoint,
+        authId: api.authId,
+        usageHints: mcpConfig.usageHints || [] // Store usage hints for AI
+      }
+    };
+  }
+
+  /**
+   * Generate input schema with custom parameter configurations
+   */
+  generateInputSchemaWithConfig(payload, paramConfigs) {
+    const properties = {};
+    const required = [];
+
+    // Detect parameters from payload (body and query params)
+    const detectedParams = this.detectParameters(payload);
+
+    // Build schema using custom configs or defaults
+    detectedParams.forEach(param => {
+      const config = paramConfigs[param.name] || {};
+      
+      // Build parameter description with examples
+      const description = this.buildParamDescription(
+        config.description || this.generateParamDescription(param.name, param.originalKey),
+        config.examples || []
+      );
+
+      properties[param.name] = {
+        type: config.type || 'string',
+        description
+      };
+
+      // Check if parameter is required (default true unless explicitly set to false)
+      if (config.required !== false) {
+        required.push(param.name);
+      }
+    });
+
+    // If no parameters detected, add a generic query parameter
+    if (Object.keys(properties).length === 0) {
+      properties['query'] = {
+        type: 'string',
+        description: 'User\'s search query, question, or request'
+      };
+      required.push('query');
+    }
+
+    return { properties, required };
+  }
+
+  /**
+   * Detect parameters from payload body and query params
+   */
+  detectParameters(payload) {
+    const params = [];
+    const seen = new Set();
+
+    // Extract from body template
+    if (payload.body && typeof payload.body === 'object') {
+      Object.entries(payload.body).forEach(([key, value]) => {
+        if (typeof value === 'string' && value.includes('{{')) {
+          const placeholderMatch = value.match(/\{\{(\w+)\}\}/);
+          if (placeholderMatch) {
+            const paramName = placeholderMatch[1];
+            if (!seen.has(paramName)) {
+              params.push({
+                name: paramName,
+                source: 'body',
+                originalKey: key
+              });
+              seen.add(paramName);
+            }
+          }
+        }
+      });
+    }
+
+    // Extract from query parameters
+    if (payload.params && Array.isArray(payload.params)) {
+      payload.params.forEach(param => {
+        if (param.key && param.value) {
+          const placeholderMatch = param.value.match(/\{\{(\w+)\}\}/);
+          if (placeholderMatch) {
+            const paramName = placeholderMatch[1];
+            if (!seen.has(paramName)) {
+              params.push({
+                name: paramName,
+                source: 'query',
+                originalKey: param.key
+              });
+              seen.add(paramName);
+            }
+          }
+        }
+      });
+    }
+
+    return params;
+  }
+
+  /**
+   * Build parameter description with examples
+   */
+  buildParamDescription(description, examples) {
+    if (!examples || examples.length === 0) {
+      return description;
+    }
+
+    // Add examples to description
+    const exampleText = examples.map(ex => `"${ex}"`).join(', ');
+    return `${description} (e.g., ${exampleText})`;
+  }
+
+  /**
+   * Generate intelligent tool description
+   */
+  generateToolDescription(api, payload, inputSchema) {
+    // If custom description provided, use it
+    if (payload.description) {
+      return payload.description;
+    }
+
+    // Generate smart description based on API type and parameters
+    const apiType = api.apiType.toLowerCase();
+    const params = Object.keys(inputSchema.properties);
+    const mainParam = params[0];
+
+    // Common patterns
+    if (apiType.includes('search') || mainParam?.includes('query') || mainParam?.includes('search')) {
+      return `Search for products or items. Use this when the user wants to find, search, or browse products. Pass the user's search query naturally.`;
+    }
+
+    if (apiType.includes('product')) {
+      return `Get product information. Use when user asks about specific products or wants product details.`;
+    }
+
+    if (apiType.includes('cart')) {
+      return `Add items to shopping cart. Use when user wants to buy or add products to cart.`;
+    }
+
+    if (apiType.includes('checkout')) {
+      return `Proceed to checkout. Use when user is ready to purchase items in their cart.`;
+    }
+
+    if (apiType.includes('order')) {
+      return `Manage orders. Use to check order status, history, or details.`;
+    }
+
+    // Fallback with parameter hints
+    const paramHint = mainParam ? `Takes "${mainParam}" parameter from user query` : '';
+    return `${api.apiType} functionality. ${paramHint}`.trim();
   }
 
   /**
@@ -138,6 +333,30 @@ class MCPService {
     // Skip internal fields like url, method, headers, params, body, name, description
     const internalFields = ['url', 'method', 'headers', 'params', 'body', 'name', 'description'];
 
+    // Extract from body template if it exists
+    if (payload.body && typeof payload.body === 'object') {
+      Object.entries(payload.body).forEach(([key, value]) => {
+        if (typeof value === 'string' && value.includes('{{')) {
+          // Extract placeholder: {{query}} or {{search_term}}
+          const placeholderMatch = value.match(/\{\{(\w+)\}\}/);
+          if (placeholderMatch) {
+            const paramName = placeholderMatch[1];
+            properties[paramName] = {
+              type: 'string',
+              description: this.generateParamDescription(paramName, key)
+            };
+            required.push(paramName);
+          }
+        } else if (!internalFields.includes(key)) {
+          // Direct parameter (no placeholder)
+          properties[key] = {
+            type: this.inferType(value),
+            description: this.generateParamDescription(key, key)
+          };
+        }
+      });
+    }
+
     // Extract query parameters as inputs (from params array)
     if (payload.params && Array.isArray(payload.params)) {
       payload.params.forEach(param => {
@@ -146,11 +365,13 @@ class MCPService {
           const placeholderMatch = param.value.match(/\{\{(\w+)\}\}/);
           if (placeholderMatch) {
             const paramName = placeholderMatch[1];
-            properties[paramName] = {
-              type: 'string',
-              description: `${param.key} parameter`
-            };
-            required.push(paramName);
+            if (!properties[paramName]) {
+              properties[paramName] = {
+                type: 'string',
+                description: this.generateParamDescription(paramName, param.key)
+              };
+              required.push(paramName);
+            }
           }
         }
       });
@@ -160,11 +381,50 @@ class MCPService {
     if (Object.keys(properties).length === 0) {
       properties['query'] = {
         type: 'string',
-        description: 'Search query or input'
+        description: 'User\'s search query, question, or request (pass the user message naturally)'
       };
+      required.push('query');
     }
 
     return { properties, required };
+  }
+
+  /**
+   * Generate intelligent parameter description
+   */
+  generateParamDescription(paramName, originalKey) {
+    const name = paramName.toLowerCase();
+
+    if (name.includes('query') || name.includes('search') || name.includes('q')) {
+      return 'What the user is searching for or asking about (e.g., "lipstick", "hair oil", etc.)';
+    }
+
+    if (name.includes('message') || name.includes('msg')) {
+      return 'User\'s message or query (pass their request naturally)';
+    }
+
+    if (name.includes('term') || name.includes('keyword')) {
+      return 'Search term or keyword from user query';
+    }
+
+    if (name.includes('id')) {
+      return 'Unique identifier';
+    }
+
+    if (name.includes('name')) {
+      return 'Name or title';
+    }
+
+    if (name.includes('category')) {
+      return 'Product category or type';
+    }
+
+    if (name.includes('price')) {
+      return 'Price value or range';
+    }
+
+    // Fallback: use the parameter name with better formatting
+    return `${originalKey || paramName} value from user query`;
   }
 
   /**

@@ -332,6 +332,11 @@ router.post("/complete-setup", async (req, res) => {
           body: config.body,
         };
 
+        // Include mcpConfig if provided (from MCPToolConfigForm)
+        if (config.mcpConfig) {
+          payload.mcpConfig = config.mcpConfig;
+        }
+
         const apiConfig = {
           timeout: 30000,
           retries: 3,
