@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ShoppingBag, MessageSquare, X, Plus, Minus, Send, Loader, Star, ChevronRight, Sparkles } from 'lucide-react';
+import { ShoppingBag, MessageSquare, X, Plus, Minus, Send, Loader, Star, ChevronRight, Sparkles, Wrench, Zap, Info, CheckCircle } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -14,6 +14,8 @@ function PublicChat({ merchantSlug }) {
   const [products, setProducts] = useState([]);
   const [showProducts, setShowProducts] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [mcpTools, setMcpTools] = useState([]);
+  const [showMcpPanel, setShowMcpPanel] = useState(true);
   const messagesEndRef = useRef(null);
 
   // Initialize session and fetch merchant data
@@ -33,12 +35,26 @@ function PublicChat({ merchantSlug }) {
         setCart(JSON.parse(savedCart));
       }
 
-      // Fetch merchant data
+      // Fetch merchant data and MCP tools
       await fetchMerchantData();
+      await fetchMcpTools();
       setIsInitializing(false);
     };
     init();
   }, [merchantSlug]);
+
+  // Fetch MCP tools for this merchant
+  const fetchMcpTools = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/mcp/merchants/${merchantSlug}/tools`);
+      const data = await response.json();
+      if (data.success && data.tools) {
+        setMcpTools(data.tools);
+      }
+    } catch (error) {
+      console.error('Failed to fetch MCP tools:', error);
+    }
+  };
 
   // Save cart to localStorage
   useEffect(() => {
@@ -126,7 +142,9 @@ function PublicChat({ merchantSlug }) {
           type: 'assistant',
           text: responseText,
           timestamp: new Date(),
-          hasProducts: extractedProducts.length > 0
+          hasProducts: extractedProducts.length > 0,
+          toolsUsed: data.data.toolsUsed,
+          tools: data.data.tools || []
         };
         setMessages(prev => [...prev, assistantMessage]);
       } else {
@@ -298,6 +316,61 @@ function PublicChat({ merchantSlug }) {
               Deals & Offers
             </button>
           </div>
+
+          {/* MCP Tools Panel */}
+          <div className="mt-6">
+            <button 
+              onClick={() => setShowMcpPanel(!showMcpPanel)}
+              className="w-full flex items-center justify-between text-gray-400 text-xs uppercase tracking-wider mb-3 hover:text-gray-300"
+            >
+              <span className="flex items-center gap-2">
+                <Wrench size={12} />
+                MCP Tools ({mcpTools.length})
+              </span>
+              <ChevronRight size={14} className={`transition-transform ${showMcpPanel ? 'rotate-90' : ''}`} />
+            </button>
+            
+            {showMcpPanel && mcpTools.length > 0 && (
+              <div className="space-y-2">
+                {mcpTools.map((tool, idx) => (
+                  <div 
+                    key={idx}
+                    className="p-3 rounded-lg bg-white/5 border border-white/10 hover:border-white/20 transition-all"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <Zap size={12} style={{ color: primaryColor }} />
+                      <span className="text-white text-xs font-semibold">{tool.name}</span>
+                    </div>
+                    <p className="text-gray-500 text-xs line-clamp-2">{tool.description}</p>
+                    {tool.inputSchema?.properties && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {Object.keys(tool.inputSchema.properties).slice(0, 3).map((param, pIdx) => (
+                          <span 
+                            key={pIdx}
+                            className="px-1.5 py-0.5 text-[10px] rounded bg-white/10 text-gray-400"
+                          >
+                            {param}
+                          </span>
+                        ))}
+                        {Object.keys(tool.inputSchema.properties).length > 3 && (
+                          <span className="px-1.5 py-0.5 text-[10px] rounded bg-white/10 text-gray-400">
+                            +{Object.keys(tool.inputSchema.properties).length - 3}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {showMcpPanel && mcpTools.length === 0 && (
+              <div className="p-3 rounded-lg bg-white/5 border border-white/10 text-center">
+                <Info size={16} className="mx-auto mb-2 text-gray-500" />
+                <p className="text-gray-500 text-xs">No tools configured</p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Powered By */}
@@ -401,6 +474,23 @@ function PublicChat({ merchantSlug }) {
                         background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`
                       } : {}}
                     >
+                      {/* Show tools used badge */}
+                      {message.type === 'assistant' && message.toolsUsed && message.tools?.length > 0 && (
+                        <div className="flex items-center gap-2 mb-2 pb-2 border-b border-white/10">
+                          <Zap size={12} style={{ color: accentColor }} />
+                          <span className="text-[10px] text-gray-400 uppercase tracking-wider">Tools Used:</span>
+                          {message.tools.map((tool, tIdx) => (
+                            <span 
+                              key={tIdx}
+                              className="px-2 py-0.5 text-[10px] rounded-full font-medium flex items-center gap-1"
+                              style={{ background: `${primaryColor}30`, color: primaryColor }}
+                            >
+                              <CheckCircle size={10} />
+                              {tool}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       <p className="text-sm whitespace-pre-wrap">{message.text}</p>
                       <p className={`text-xs mt-1 ${message.type === 'user' ? 'text-white/70' : 'text-gray-500'}`}>
                         {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

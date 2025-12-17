@@ -143,11 +143,26 @@ router.get('/merchants/:merchantId/stream', async (req, res) => {
 /**
  * List all available tools for a merchant
  * GET /api/mcp/merchants/:merchantId/tools
+ * merchantId can be either numeric ID or slug
  */
 router.get('/merchants/:merchantId/tools', async (req, res) => {
-  const { merchantId } = req.params;
+  let { merchantId } = req.params;
 
   try {
+    // Check if merchantId is a slug (non-numeric)
+    if (isNaN(parseInt(merchantId))) {
+      const merchant = await prisma.merchant.findUnique({
+        where: { slug: merchantId }
+      });
+      if (!merchant) {
+        return res.status(404).json({
+          success: false,
+          error: `Merchant with slug '${merchantId}' not found`
+        });
+      }
+      merchantId = merchant.id;
+    }
+
     const { merchant, tools } = await mcpService.getMerchantTools(merchantId);
 
     res.json({
