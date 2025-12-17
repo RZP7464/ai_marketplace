@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { X, Copy, Check, Download } from 'lucide-react';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 function CursorConfigModal({ isOpen, onClose }) {
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -17,7 +19,7 @@ function CursorConfigModal({ isOpen, onClose }) {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('http://localhost:3001/api/mcp/cursor-config');
+      const response = await fetch(`${API_BASE_URL}/api/mcp/cursor-config`);
       const data = await response.json();
       
       if (data.success) {

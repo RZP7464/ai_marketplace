@@ -8,7 +8,8 @@ function AuthPage({ onLogin }) {
     email: '',
     password: '',
     confirmPassword: '',
-    name: ''
+    name: '',
+    businessName: ''
   })
   const [rememberMe, setRememberMe] = useState(false)
   const [errors, setErrors] = useState({})
@@ -41,6 +42,12 @@ function AuthPage({ onLogin }) {
     }
     
     if (activeTab === 'signup') {
+      if (!formData.name) {
+        newErrors.name = 'Name is required'
+      }
+      if (!formData.businessName) {
+        newErrors.businessName = 'Business name is required'
+      }
       if (!formData.confirmPassword) {
         newErrors.confirmPassword = 'Please confirm your password'
       } else if (formData.password !== formData.confirmPassword) {
@@ -64,9 +71,19 @@ function AuthPage({ onLogin }) {
       const isSignup = activeTab === 'signup'
       
       if (isSignup) {
-        // For signup, we need merchantId - for now create a flow that handles this
-        // In production, you might create merchant first or use a different flow
-        onLogin({ email: formData.email, name: formData.name }, true)
+        // Register new merchant and user
+        const response = await apiService.merchantRegister({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          businessName: formData.businessName
+        })
+        
+        if (response.success) {
+          onLogin(response.data.user, false)
+        } else {
+          setApiError(response.error || 'Registration failed')
+        }
       } else {
         // Login with API
         const response = await apiService.login(formData.email, formData.password)
@@ -319,6 +336,32 @@ function AuthPage({ onLogin }) {
               ) : (
                 /* Signup Form */
                 <>
+                  <div>
+                    <label className="block text-gray-400 text-xs mb-2">Your Name</label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      placeholder="Enter your full name"
+                      className={`w-full px-4 py-3 bg-[#2a2a4a] border ${errors.name ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors`}
+                    />
+                    {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-400 text-xs mb-2">Business Name</label>
+                    <input
+                      type="text"
+                      name="businessName"
+                      value={formData.businessName}
+                      onChange={handleInputChange}
+                      placeholder="Enter your business name"
+                      className={`w-full px-4 py-3 bg-[#2a2a4a] border ${errors.businessName ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors`}
+                    />
+                    {errors.businessName && <p className="text-red-400 text-xs mt-1">{errors.businessName}</p>}
+                  </div>
+
                   <div>
                     <label className="block text-gray-400 text-xs mb-2">Work Email</label>
                     <input

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import apiService from '../services/api';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 function MerchantDashboardComplete() {
   const [loading, setLoading] = useState(true);
   const [merchantData, setMerchantData] = useState(null);
@@ -325,6 +327,37 @@ function MerchantDashboardComplete() {
               </div>
             </div>
           </div>
+
+          {/* Settings CTA */}
+          <div className="mt-6">
+            <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/30 rounded-lg p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-white mb-1">Advanced Settings</h3>
+                    <p className="text-gray-400 text-sm">
+                      Configure AI models, MCP endpoints, theme customization, and more
+                    </p>
+                  </div>
+                </div>
+                <a
+                  href="/settings"
+                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium rounded-lg transition-all flex items-center gap-2 shadow-lg hover:shadow-xl"
+                >
+                  <span>Open Settings</span>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+          </div>
           </>
         )}
 
@@ -565,19 +598,19 @@ function MerchantDashboardComplete() {
                   <div>
                     <p className="text-gray-400 text-sm">Server Info</p>
                     <code className="text-purple-300 font-mono text-sm break-all">
-                      http://localhost:3001/api/mcp/merchants/{merchant.id}/info
+                      {API_BASE_URL}/api/mcp/merchants/{merchant.id}/info
                     </code>
                   </div>
                   <div>
                     <p className="text-gray-400 text-sm">Tools List</p>
                     <code className="text-purple-300 font-mono text-sm break-all">
-                      http://localhost:3001/api/mcp/merchants/{merchant.id}/tools
+                      {API_BASE_URL}/api/mcp/merchants/{merchant.id}/tools
                     </code>
                   </div>
                   <div>
                     <p className="text-gray-400 text-sm">SSE Stream</p>
                     <code className="text-purple-300 font-mono text-sm break-all">
-                      http://localhost:3001/api/mcp/merchants/{merchant.id}/stream
+                      {API_BASE_URL}/api/mcp/merchants/{merchant.id}/stream
                     </code>
                   </div>
                 </div>
@@ -586,7 +619,7 @@ function MerchantDashboardComplete() {
               <div className="bg-white/5 backdrop-blur-md rounded-lg p-6 border border-white/10">
                 <h3 className="text-lg font-semibold text-white mb-4">Test MCP</h3>
                 <button
-                  onClick={() => window.open(`http://localhost:3001/api/mcp/merchants/${merchant.id}/tools`, '_blank')}
+                  onClick={() => window.open(`${API_BASE_URL}/api/mcp/merchants/${merchant.id}/tools`, '_blank')}
                   className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors"
                 >
                   Open Tools Endpoint
