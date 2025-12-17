@@ -1,18 +1,13 @@
-// API Configuration
-// Automatically detects the correct API URL based on environment
+// API Configuration - Single Source of Truth
+// All backend API calls will use this URL
 
 const getApiBaseUrl = () => {
-  // 1. Check if explicit environment variable is set
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-
-  // 2. For production, use the backend URL
+  // Production: Use production backend
   if (import.meta.env.PROD) {
     return 'https://ai-marketplace-api.onrender.com';
   }
 
-  // 3. Development default
+  // Development: Use local backend
   return 'http://localhost:3001';
 };
 
@@ -22,8 +17,8 @@ export const API_BASE_URL = getApiBaseUrl();
 export const debugApiConfig = () => {
   console.log('🔧 API Configuration:');
   console.log('  Environment:', import.meta.env.MODE);
-  console.log('  VITE_API_URL:', import.meta.env.VITE_API_URL);
-  console.log('  Detected API_BASE_URL:', API_BASE_URL);
+  console.log('  Production:', import.meta.env.PROD);
+  console.log('  API_BASE_URL:', API_BASE_URL);
   console.log('  Current Host:', window.location.hostname);
 };
 
