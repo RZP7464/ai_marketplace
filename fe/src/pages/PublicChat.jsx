@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ShoppingBag, MessageSquare, X, Plus, Minus, Send, Loader, Star, ChevronRight, Sparkles, Wrench, Zap, Info, CheckCircle } from 'lucide-react';
+import ToolResultRenderer from '../components/ToolResultRenderer';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -117,14 +118,16 @@ function PublicChat({ merchantSlug }) {
       const data = await response.json();
 
       if (data.success) {
-        // Just show the AI's response - let the LLM handle formatting
+        // Include AI response and all tool results for dynamic rendering
         const assistantMessage = {
           id: Date.now() + 1,
           type: 'assistant',
           text: data.data.response,
           timestamp: new Date(),
           toolsUsed: data.data.toolsUsed,
-          tools: data.data.tools || []
+          tools: data.data.tools || [],
+          toolResult: data.data.toolResult, // For backward compatibility
+          toolResults: data.data.toolResults // All tool results with images, products, etc.
         };
         setMessages(prev => [...prev, assistantMessage]);
       } else {
@@ -461,6 +464,28 @@ function PublicChat({ merchantSlug }) {
                         </div>
                       )}
                       <p className="text-sm whitespace-pre-wrap">{message.text}</p>
+                      
+                      {/* Dynamic Tool Results Rendering - Multiple Tools */}
+                      {message.toolResults && message.toolResults.length > 0 && (
+                        <div>
+                          {message.toolResults.map((result, idx) => (
+                            <ToolResultRenderer 
+                              key={idx}
+                              result={result}
+                              toolName={result.tool || `tool-${idx}`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Dynamic Tool Result Rendering - Single Tool (backward compatibility) */}
+                      {!message.toolResults && message.toolResult && (
+                        <ToolResultRenderer 
+                          result={{ data: message.toolResult, success: true }}
+                          toolName="result"
+                        />
+                      )}
+                      
                       <p className={`text-xs mt-1 ${message.type === 'user' ? 'text-white/70' : 'text-gray-500'}`}>
                         {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </p>

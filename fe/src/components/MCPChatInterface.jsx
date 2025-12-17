@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Bot, User, Zap, Loader, RefreshCw, AlertCircle } from 'lucide-react';
+import ToolResultRenderer from './ToolResultRenderer';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -315,30 +316,25 @@ const MCPChatInterface = ({ merchantId, merchantName }) => {
                 >
                   <p className="text-sm whitespace-pre-wrap">{message.content}</p>
 
-                  {/* Tool Results */}
+                  {/* Tool Results with Dynamic Rendering */}
                   {message.toolResults && message.toolResults.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-gray-200">
-                      <p className="text-xs font-semibold mb-2">Tool Execution Results:</p>
+                    <div>
                       {message.toolResults.map((result, idx) => (
-                        <div key={idx} className="text-xs bg-gray-50 rounded p-2 mb-1">
-                          <span className="font-mono">{result.tool}:</span>{' '}
-                          {result.success ? (
-                            <span className="text-green-600">✓ Success</span>
-                          ) : (
-                            <span className="text-red-600">✗ {result.error}</span>
-                          )}
-                        </div>
+                        <ToolResultRenderer 
+                          key={idx}
+                          result={result}
+                          toolName={result.tool}
+                        />
                       ))}
                     </div>
                   )}
 
-                  {/* Single Tool Result */}
+                  {/* Single Tool Result with Dynamic Rendering */}
                   {message.toolResult && (
-                    <div className="mt-3 pt-3 border-t border-gray-200">
-                      <pre className="text-xs bg-gray-50 rounded p-2 overflow-x-auto">
-                        {JSON.stringify(message.toolResult, null, 2)}
-                      </pre>
-                    </div>
+                    <ToolResultRenderer 
+                      result={message.toolResult}
+                      toolName="tool"
+                    />
                   )}
                 </div>
 

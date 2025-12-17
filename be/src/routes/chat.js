@@ -87,15 +87,18 @@ router.post('/public/:merchantSlug', async (req, res) => {
       }
     });
 
-    // Extract product data from tool results if available
+    // Extract ALL tool results for dynamic rendering (images, products, etc.)
     let toolResult = null;
+    let allToolResults = [];
+    
     if (aiResponse.functionResults?.length > 0) {
-      // Find search/product related tool result
-      const productResult = aiResponse.functionResults.find(
-        fr => fr.success && fr.data && (fr.tool.includes('search') || fr.tool.includes('product'))
-      );
-      if (productResult) {
-        toolResult = productResult.data;
+      // Include all successful tool results
+      allToolResults = aiResponse.functionResults.filter(fr => fr.success);
+      
+      // For backward compatibility, keep the first successful result as toolResult
+      const firstSuccess = aiResponse.functionResults.find(fr => fr.success && fr.data);
+      if (firstSuccess) {
+        toolResult = firstSuccess.data;
       }
     }
 
@@ -105,7 +108,8 @@ router.post('/public/:merchantSlug', async (req, res) => {
         response: responseText,
         sessionId: session.id,
         toolsUsed: aiResponse.functionCalls?.length > 0,
-        toolResult: toolResult,
+        toolResult: toolResult, // For backward compatibility
+        toolResults: allToolResults, // All tool results for dynamic rendering
         tools: aiResponse.functionCalls?.map(fc => fc.name) || []
       }
     });
