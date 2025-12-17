@@ -1,13 +1,103 @@
-import React, { useState } from 'react'
-import { Settings, Store, Code, ArrowLeft, LogOut, Save, Check } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Settings, Store, Code, ArrowLeft, LogOut, Save, Check, Loader, Bot } from 'lucide-react'
 import BrandIdentity from './BrandIdentity'
 import ApiConfiguration from './ApiConfiguration'
+import apiService from '../services/api'
 
-function MerchantSettings({ onLogout, initialBrandData, initialApiConfigs }) {
-  const [activeTab, setActiveTab] = useState('brand') // 'brand' or 'api'
-  const [brandData, setBrandData] = useState(initialBrandData || null)
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+function MerchantSettings({ onLogout }) {
+  const [activeTab, setActiveTab] = useState('brand') // 'brand', 'api', or 'ai'
+  const [brandData, setBrandData] = useState(null)
+  const [apiConfigs, setApiConfigs] = useState(null)
+  const [aiConfig, setAiConfig] = useState(null)
   const [hasChanges, setHasChanges] = useState(false)
   const [saveStatus, setSaveStatus] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [merchantId, setMerchantId] = useState(null)
+
+  // Fetch current settings on mount
+  useEffect(() => {
+    fetchCurrentSettings()
+  }, [])
+
+  const fetchCurrentSettings = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      // Get merchant data from API
+      const response = await apiService.getMerchant()
+      
+      if (response.success && response.data) {
+        const merchant = response.data
+        setMerchantId(merchant.id)
+
+        // Prefill brand data
+        setBrandData({
+          display_logo: merchant.logo || '',
+          display_name: merchant.displayName || merchant.name || '',
+          display_tagline: merchant.tagline || '',
+          display_message: merchant.welcomeMessage || '',
+          display_category: merchant.categories || [],
+          primary_color: merchant.dynamicSettings?.primaryColor || '#3B82F6',
+          secondary_color: merchant.dynamicSettings?.secondaryColor || '#60A5FA',
+          accent_color: merchant.dynamicSettings?.accentColor || '#F472B6',
+        })
+
+        // Prefill API configs
+        if (merchant.apis && merchant.apis.length > 0) {
+          const configs = {}
+          const apiTypeMapping = {
+            'search': 'search_item',
+            'addtocart': 'add_to_cart',
+            'checkout': 'checkout',
+            'basesystemprompt': 'base_prompt',
+            'coupons': 'coupons',
+          }
+
+          merchant.apis.forEach(api => {
+            const configKey = apiTypeMapping[api.apiType] || api.apiType
+            const payload = api.payload || {}
+            
+            configs[configKey] = {
+              url: payload.url || '',
+              method: payload.method || 'GET',
+              headers: payload.headers || [{ key: '', value: '' }],
+              params: payload.params || [{ key: '', value: '' }],
+              body: payload.body || '',
+            }
+          })
+
+          setApiConfigs(configs)
+        }
+
+        // Prefill AI config
+        if (merchant.aiConfigurations && merchant.aiConfigurations.length > 0) {
+          const activeAi = merchant.aiConfigurations.find(c => c.isActive) || merchant.aiConfigurations[0]
+          setAiConfig({
+            provider: activeAi.provider || 'gemini',
+            model: activeAi.model || 'gemini-2.5-flash',
+            isActive: activeAi.isActive,
+          })
+        } else {
+          setAiConfig({
+            provider: 'gemini',
+            model: 'gemini-2.5-flash',
+            isActive: true
+          })
+        }
+      } else {
+        setError('Failed to load merchant settings')
+      }
+    } catch (err) {
+      console.error('Error fetching settings:', err)
+      setError(err.message || 'Failed to load settings')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   // Navigate to dashboard
   const goToDashboard = () => {
@@ -15,31 +105,72 @@ function MerchantSettings({ onLogout, initialBrandData, initialApiConfigs }) {
     window.dispatchEvent(new PopStateEvent('popstate'))
   }
 
-  // Handle brand identity updates (from the embedded component)
+  // Handle brand identity updates
   const handleBrandUpdate = (data) => {
     setBrandData(data)
     setHasChanges(true)
-    // In settings mode, don't navigate - just update data
   }
 
   // Handle API config updates
   const handleApiUpdate = (data) => {
+    setApiConfigs(data.apiConfigs)
     setHasChanges(true)
-    // In settings mode, don't navigate - just update data
   }
 
   // Save all changes
   const handleSave = async () => {
     setSaveStatus('saving')
     try {
-      // TODO: Call API to save settings
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      setSaveStatus('saved')
-      setHasChanges(false)
-      setTimeout(() => setSaveStatus(null), 2000)
+      // Call complete-setup API to save all settings
+      const response = await apiService.completeSetup({
+        brandData: brandData,
+        apiConfigs: apiConfigs || {},
+      })
+
+      if (response.success) {
+        setSaveStatus('saved')
+        setHasChanges(false)
+        setTimeout(() => setSaveStatus(null), 2000)
+      } else {
+        throw new Error(response.error || 'Failed to save')
+      }
     } catch (err) {
+      console.error('Save error:', err)
       setSaveStatus(null)
+      alert('Failed to save: ' + err.message)
     }
+  }
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#1a1a2e] flex items-center justify-center">
+        <div className="text-center">
+          <Loader className="w-12 h-12 animate-spin text-purple-500 mx-auto mb-4" />
+          <p className="text-gray-400">Loading your settings...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#1a1a2e] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-3xl">⚠️</span>
+          </div>
+          <p className="text-red-400 mb-4">{error}</p>
+          <button 
+            onClick={fetchCurrentSettings}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -141,26 +272,155 @@ function MerchantSettings({ onLogout, initialBrandData, initialApiConfigs }) {
               <Code className="w-4 h-4" />
               API Configuration
             </button>
+            <button 
+              onClick={() => setActiveTab('ai')}
+              className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-all ${
+                activeTab === 'ai' 
+                  ? 'text-white border-purple-500' 
+                  : 'text-gray-400 border-transparent hover:text-white'
+              }`}
+            >
+              <Bot className="w-4 h-4" />
+              AI Settings
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Content - Reuse existing components */}
+      {/* Content - Reuse existing components with prefilled data */}
       <div className="max-w-7xl mx-auto">
-        {activeTab === 'brand' ? (
+        {activeTab === 'brand' && brandData && (
           <BrandIdentity 
             onNext={handleBrandUpdate}
             onBack={null}
             isSettingsMode={true}
             initialData={brandData}
           />
-        ) : (
+        )}
+        
+        {activeTab === 'api' && (
           <ApiConfiguration 
             onNext={handleApiUpdate}
             onBack={() => setActiveTab('brand')}
             brandData={brandData}
             isSettingsMode={true}
+            initialApiConfigs={apiConfigs}
           />
+        )}
+
+        {activeTab === 'ai' && (
+          <div className="p-6">
+            <div className="bg-[#252542] rounded-xl p-6 border border-white/10">
+              <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
+                <Bot className="w-6 h-6 text-purple-400" />
+                AI Provider Settings
+              </h2>
+
+              {/* Current Config Display */}
+              <div className="mb-6 p-4 bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-xl border border-purple-500/20">
+                <h3 className="text-white font-medium mb-3">Current Configuration</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-gray-400 text-sm">Provider</p>
+                    <p className="text-white font-semibold capitalize">{aiConfig?.provider || 'gemini'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Model</p>
+                    <p className="text-white font-semibold">{aiConfig?.model || 'gemini-2.5-flash'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Status</p>
+                    <p className="text-green-400 font-semibold flex items-center gap-1">
+                      <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+                      Active
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">API Key</p>
+                    <p className="text-white font-mono">••••••••••••</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Provider Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Gemini */}
+                <div className={`p-5 rounded-xl border-2 transition-all ${
+                  aiConfig?.provider === 'gemini' 
+                    ? 'border-green-500 bg-green-500/10' 
+                    : 'border-white/10 bg-white/5 hover:border-white/20'
+                }`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <img 
+                        src="https://www.gstatic.com/images/branding/product/2x/gemini_32dp.png" 
+                        alt="Gemini" 
+                        className="w-8 h-8"
+                      />
+                      <span className="text-white font-semibold">Google Gemini</span>
+                    </div>
+                    {aiConfig?.provider === 'gemini' && (
+                      <span className="px-2 py-1 bg-green-500 text-white text-xs rounded-full">Active</span>
+                    )}
+                  </div>
+                  <p className="text-gray-400 text-sm mb-3">
+                    Fast and efficient AI models for text generation and tool calling.
+                  </p>
+                  <div className="space-y-1 text-xs text-gray-500">
+                    <p>• gemini-2.5-flash (Default)</p>
+                    <p>• gemini-2.0-flash</p>
+                    <p>• gemini-pro</p>
+                  </div>
+                </div>
+
+                {/* OpenAI */}
+                <div className={`p-5 rounded-xl border-2 transition-all ${
+                  aiConfig?.provider === 'openai' 
+                    ? 'border-green-500 bg-green-500/10' 
+                    : 'border-white/10 bg-white/5 hover:border-white/20'
+                }`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
+                        <span className="text-white font-bold text-sm">AI</span>
+                      </div>
+                      <span className="text-white font-semibold">OpenAI</span>
+                    </div>
+                    {aiConfig?.provider === 'openai' && (
+                      <span className="px-2 py-1 bg-green-500 text-white text-xs rounded-full">Active</span>
+                    )}
+                  </div>
+                  <p className="text-gray-400 text-sm mb-3">
+                    Powerful GPT models with advanced reasoning capabilities.
+                  </p>
+                  <div className="space-y-1 text-xs text-gray-500">
+                    <p>• gpt-4-turbo</p>
+                    <p>• gpt-4</p>
+                    <p>• gpt-3.5-turbo</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* MCP Endpoint Info */}
+              <div className="mt-6 p-4 bg-white/5 rounded-xl border border-white/10">
+                <h3 className="text-white font-medium mb-3">MCP Endpoint</h3>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 px-3 py-2 bg-black/30 rounded-lg text-green-400 text-sm font-mono">
+                    {API_BASE_URL}/api/mcp/merchants/{merchantId}/tools
+                  </code>
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${API_BASE_URL}/api/mcp/merchants/${merchantId}/tools`)
+                      alert('Copied!')
+                    }}
+                    className="px-3 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
