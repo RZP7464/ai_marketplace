@@ -9,7 +9,7 @@ const axios = require('axios');
 const readline = require('readline');
 
 const MERCHANT_ID = process.argv[2] || process.env.MERCHANT_ID;
-const BASE_URL = process.argv[3] || process.env.BASE_URL || 'http://localhost:3001';
+const BASE_URL = process.argv[3] || process.env.API_BASE_URL || process.env.BASE_URL || 'http://localhost:3001';
 
 if (!MERCHANT_ID) {
   console.error('Error: MERCHANT_ID required');

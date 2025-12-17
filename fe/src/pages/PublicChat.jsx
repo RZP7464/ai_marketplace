@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ShoppingBag, MessageSquare, X, Plus, Minus, Send, Loader, Star, ChevronRight, Sparkles } from 'lucide-react';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 function PublicChat({ merchantSlug }) {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -52,7 +54,7 @@ function PublicChat({ merchantSlug }) {
 
   const fetchMerchantData = async () => {
     try {
-      const response = await fetch(`http://localhost:3001/api/merchant/public/${merchantSlug}`);
+      const response = await fetch(`${API_BASE_URL}/api/merchant/public/${merchantSlug}`);
       const data = await response.json();
       if (data.success) {
         setMerchantData(data.data);
@@ -88,7 +90,7 @@ function PublicChat({ merchantSlug }) {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`http://localhost:3001/api/chat/public/${merchantSlug}`, {
+      const response = await fetch(`${API_BASE_URL}/api/chat/public/${merchantSlug}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

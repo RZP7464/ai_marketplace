@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import apiService from '../services/api';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 function MerchantDashboardComplete() {
   const [loading, setLoading] = useState(true);
   const [merchantData, setMerchantData] = useState(null);
@@ -565,19 +567,19 @@ function MerchantDashboardComplete() {
                   <div>
                     <p className="text-gray-400 text-sm">Server Info</p>
                     <code className="text-purple-300 font-mono text-sm break-all">
-                      http://localhost:3001/api/mcp/merchants/{merchant.id}/info
+                      {API_BASE_URL}/api/mcp/merchants/{merchant.id}/info
                     </code>
                   </div>
                   <div>
                     <p className="text-gray-400 text-sm">Tools List</p>
                     <code className="text-purple-300 font-mono text-sm break-all">
-                      http://localhost:3001/api/mcp/merchants/{merchant.id}/tools
+                      {API_BASE_URL}/api/mcp/merchants/{merchant.id}/tools
                     </code>
                   </div>
                   <div>
                     <p className="text-gray-400 text-sm">SSE Stream</p>
                     <code className="text-purple-300 font-mono text-sm break-all">
-                      http://localhost:3001/api/mcp/merchants/{merchant.id}/stream
+                      {API_BASE_URL}/api/mcp/merchants/{merchant.id}/stream
                     </code>
                   </div>
                 </div>
@@ -586,7 +588,7 @@ function MerchantDashboardComplete() {
               <div className="bg-white/5 backdrop-blur-md rounded-lg p-6 border border-white/10">
                 <h3 className="text-lg font-semibold text-white mb-4">Test MCP</h3>
                 <button
-                  onClick={() => window.open(`http://localhost:3001/api/mcp/merchants/${merchant.id}/tools`, '_blank')}
+                  onClick={() => window.open(`${API_BASE_URL}/api/mcp/merchants/${merchant.id}/tools`, '_blank')}
                   className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors"
                 >
                   Open Tools Endpoint

@@ -13,6 +13,8 @@ import {
   EyeOff
 } from 'lucide-react';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 const AISettings = ({ merchantId }) => {
   const [providers, setProviders] = useState([]);
   const [configurations, setConfigurations] = useState([]);
@@ -44,7 +46,7 @@ const AISettings = ({ merchantId }) => {
       setLoading(true);
       
       // Load available providers
-      const providersRes = await fetch('http://localhost:3001/api/settings/ai/providers');
+      const providersRes = await fetch(`${API_BASE_URL}/api/settings/ai/providers`);
       const providersData = await providersRes.json();
       
       if (providersData.success) {
@@ -52,7 +54,7 @@ const AISettings = ({ merchantId }) => {
       }
 
       // Load merchant configurations
-      const configsRes = await fetch(`http://localhost:3001/api/settings/merchants/${merchantId}/ai`);
+      const configsRes = await fetch(`${API_BASE_URL}/api/settings/merchants/${merchantId}/ai`);
       const configsData = await configsRes.json();
       
       if (configsData.success) {
@@ -88,7 +90,7 @@ const AISettings = ({ merchantId }) => {
       setTestResult(null);
       setError(null);
 
-      const response = await fetch('http://localhost:3001/api/settings/ai/test', {
+      const response = await fetch(`${API_BASE_URL}/api/settings/ai/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -119,7 +121,7 @@ const AISettings = ({ merchantId }) => {
       setError(null);
       setSuccess(null);
 
-      const response = await fetch(`http://localhost:3001/api/settings/merchants/${merchantId}/ai`, {
+      const response = await fetch(`${API_BASE_URL}/api/settings/merchants/${merchantId}/ai`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -155,7 +157,7 @@ const AISettings = ({ merchantId }) => {
   const handleActivate = async (configId) => {
     try {
       const response = await fetch(
-        `http://localhost:3001/api/settings/merchants/${merchantId}/ai/${configId}/activate`,
+        `${API_BASE_URL}/api/settings/merchants/${merchantId}/ai/${configId}/activate`,
         { method: 'PUT' }
       );
 
@@ -180,7 +182,7 @@ const AISettings = ({ merchantId }) => {
 
     try {
       const response = await fetch(
-        `http://localhost:3001/api/settings/merchants/${merchantId}/ai/${configId}`,
+        `${API_BASE_URL}/api/settings/merchants/${merchantId}/ai/${configId}`,
         { method: 'DELETE' }
       );
 

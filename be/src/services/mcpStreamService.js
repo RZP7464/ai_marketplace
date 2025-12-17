@@ -251,6 +251,8 @@ class MCPStreamService {
         }
       });
 
+      const baseUrl = process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
+
       return merchants.map(merchant => ({
         merchantId: merchant.id,
         merchantName: merchant.name,
@@ -258,7 +260,7 @@ class MCPStreamService {
         displayName: merchant.displayName,
         apisCount: merchant._count.apis,
         mcpEndpoint: `/api/mcp/merchants/${merchant.id}/stream`,
-        mcpUrl: `http://localhost:${process.env.PORT || 3001}/api/mcp/merchants/${merchant.id}/stream`
+        mcpUrl: `${baseUrl}/api/mcp/merchants/${merchant.id}/stream`
       }));
     } catch (error) {
       throw new Error(`Failed to list MCP servers: ${error.message}`);

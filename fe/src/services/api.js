@@ -67,6 +67,20 @@ class ApiService {
     return response;
   }
 
+  async merchantRegister(userData) {
+    const response = await this.request('/api/auth/merchant-register', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+    });
+
+    if (response.success && response.data.token) {
+      this.setToken(response.data.token);
+      this.setUser(response.data.user);
+    }
+
+    return response;
+  }
+
   async getCurrentUser() {
     const response = await this.request('/api/auth/me', {
       method: 'GET',
