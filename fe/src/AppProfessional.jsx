@@ -149,9 +149,9 @@ function AppProfessional() {
       window.history.pushState({}, '', '/onboarding')
       setCurrentRoute('brand-identity')
     } else {
-      // Existing user login - go to settings page
-      window.history.pushState({}, '', '/settings')
-      setCurrentRoute('settings')
+      // Existing user login - go to dashboard/overview page
+      window.history.pushState({}, '', '/dashboard')
+      setCurrentRoute('dashboard')
     }
   }
 
