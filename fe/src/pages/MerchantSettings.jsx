@@ -79,13 +79,13 @@ function MerchantSettings({ onLogout }) {
           const activeAi = merchant.aiConfigurations.find(c => c.isActive) || merchant.aiConfigurations[0]
           setAiConfig({
             provider: activeAi.provider || 'gemini',
-            model: activeAi.model || 'gemini-2.5-flash',
+            model: activeAi.model || 'gemini-2.5-pro',
             isActive: activeAi.isActive,
           })
         } else {
           setAiConfig({
             provider: 'gemini',
-            model: 'gemini-2.5-flash',
+            model: 'gemini-2.5-pro',
             isActive: true
           })
         }
@@ -335,7 +335,7 @@ function MerchantSettings({ onLogout }) {
                   </div>
                   <div>
                     <p className="text-gray-400 text-sm">Model</p>
-                    <p className="text-white font-semibold">{aiConfig?.model || 'gemini-2.5-flash'}</p>
+                    <p className="text-white font-semibold">{aiConfig?.model || 'gemini-2.5-pro'}</p>
                   </div>
                   <div>
                     <p className="text-gray-400 text-sm">Status</p>
@@ -376,7 +376,7 @@ function MerchantSettings({ onLogout }) {
                     Fast and efficient AI models for text generation and tool calling.
                   </p>
                   <div className="space-y-1 text-xs text-gray-500">
-                    <p>• gemini-2.5-flash (Default)</p>
+                    <p>• gemini-2.5-pro (Default)</p>
                     <p>• gemini-2.0-flash</p>
                     <p>• gemini-pro</p>
                   </div>
