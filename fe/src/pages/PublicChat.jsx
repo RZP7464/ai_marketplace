@@ -11,8 +11,7 @@ function PublicChat({ merchantSlug }) {
   const [sessionId, setSessionId] = useState(null);
   const [cart, setCart] = useState([]);
   const [showCart, setShowCart] = useState(false);
-  const [products, setProducts] = useState([]);
-  const [showProducts, setShowProducts] = useState(false);
+  // Products are now shown directly in LLM response - no separate parsing needed
   const [isInitializing, setIsInitializing] = useState(true);
   const [mcpTools, setMcpTools] = useState([]);
   const [showMcpPanel, setShowMcpPanel] = useState(true);
@@ -118,31 +117,12 @@ function PublicChat({ merchantSlug }) {
       const data = await response.json();
 
       if (data.success) {
-        // Check if response contains products (from MCP tool)
-        let responseText = data.data.response;
-        let extractedProducts = [];
-
-        // Try to extract products from response
-        if (data.data.toolsUsed && data.data.toolResult) {
-          extractedProducts = parseProductsFromToolResult(data.data.toolResult);
-        }
-
-        // Also try to parse products from response text if it looks like JSON
-        if (extractedProducts.length === 0) {
-          extractedProducts = tryParseProductsFromText(responseText);
-        }
-
-        if (extractedProducts.length > 0) {
-          setProducts(extractedProducts);
-          setShowProducts(true);
-        }
-
+        // Just show the AI's response - let the LLM handle formatting
         const assistantMessage = {
           id: Date.now() + 1,
           type: 'assistant',
-          text: responseText,
+          text: data.data.response,
           timestamp: new Date(),
-          hasProducts: extractedProducts.length > 0,
           toolsUsed: data.data.toolsUsed,
           tools: data.data.tools || []
         };
@@ -161,47 +141,6 @@ function PublicChat({ merchantSlug }) {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Parse products from MCP tool result
-  const parseProductsFromToolResult = (toolResult) => {
-    try {
-      if (typeof toolResult === 'string') {
-        toolResult = JSON.parse(toolResult);
-      }
-      
-      // Handle various API response formats
-      let items = toolResult.products || toolResult.items || toolResult.data?.products || 
-                  toolResult.data?.items || toolResult.results || [];
-      
-      if (!Array.isArray(items)) return [];
-
-      return items.slice(0, 6).map((item, idx) => ({
-        id: item.id || item.product_id || idx + 1,
-        name: item.name || item.title || item.product_name || 'Product',
-        price: parseFloat(item.price || item.selling_price || item.cost || 0),
-        originalPrice: parseFloat(item.original_price || item.mrp || item.price || 0) * 1.2,
-        image: item.image || item.image_url || item.thumbnail || item.images?.[0] || 
-               `https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=400&fit=crop`,
-        description: item.description || item.short_description || '',
-        rating: item.rating || 4.5
-      }));
-    } catch (e) {
-      return [];
-    }
-  };
-
-  // Try to parse products from text response
-  const tryParseProductsFromText = (text) => {
-    try {
-      // Look for JSON in the response
-      const jsonMatch = text.match(/\{[\s\S]*"products"[\s\S]*\}/);
-      if (jsonMatch) {
-        const data = JSON.parse(jsonMatch[0]);
-        return parseProductsFromToolResult(data);
-      }
-    } catch (e) {}
-    return [];
   };
 
   const addToCart = (product) => {
@@ -512,73 +451,7 @@ function PublicChat({ merchantSlug }) {
               </div>
             )}
 
-            {/* Products Grid */}
-            {showProducts && products.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <Sparkles size={18} style={{ color: accentColor }} />
-                  Products for You
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {products.map((product) => (
-                    <div
-                      key={product.id}
-                      className="rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition-all hover:shadow-xl"
-                      style={{ background: 'rgba(255,255,255,0.05)' }}
-                    >
-                      <div className="aspect-square relative overflow-hidden">
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="w-full h-full object-cover transition-transform hover:scale-105"
-                          onError={(e) => {
-                            e.target.src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=400&fit=crop';
-                          }}
-                        />
-                        {product.originalPrice > product.price && (
-                          <span 
-                            className="absolute top-2 left-2 px-2 py-1 text-xs font-semibold text-white rounded"
-                            style={{ background: accentColor }}
-                          >
-                            {Math.round((1 - product.price / product.originalPrice) * 100)}% OFF
-                          </span>
-                        )}
-                      </div>
-                      <div className="p-4">
-                        <h4 className="font-medium text-white text-sm mb-1 line-clamp-2">{product.name}</h4>
-                        <div className="flex items-center gap-1 mb-2">
-                          {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={i}
-                              size={12}
-                              className={i < Math.floor(product.rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-600'}
-                            />
-                          ))}
-                          <span className="text-gray-500 text-xs ml-1">{product.rating}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <span className="text-white font-semibold">₹{product.price.toLocaleString()}</span>
-                            {product.originalPrice > product.price && (
-                              <span className="text-gray-500 text-sm line-through ml-2">
-                                ₹{product.originalPrice.toLocaleString()}
-                              </span>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => addToCart(product)}
-                            className="p-2 rounded-lg transition-colors text-white"
-                            style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
-                          >
-                            <Plus size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Products are now displayed by the LLM in the chat response */}
 
             <div ref={messagesEndRef} />
           </div>

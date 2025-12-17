@@ -8,6 +8,8 @@ class MCPService {
    */
   async getMerchantTools(merchantId) {
     try {
+      console.log(`\n=== Getting MCP Tools for Merchant ${merchantId} ===`);
+      
       // Fetch merchant with their APIs and credentials
       const merchant = await prisma.merchant.findUnique({
         where: { id: parseInt(merchantId) },
@@ -24,8 +26,18 @@ class MCPService {
         throw new Error('Merchant not found');
       }
 
+      console.log(`Found merchant: ${merchant.name} (${merchant.slug})`);
+      console.log(`Total APIs configured: ${merchant.apis.length}`);
+      
+      // Log each API
+      merchant.apis.forEach((api, idx) => {
+        console.log(`  API ${idx + 1}: type=${api.apiType}, name=${api.payload?.name}, url=${api.payload?.url}`);
+      });
+
       // Convert APIs to MCP tools
       const tools = merchant.apis.map(api => this.convertApiToTool(api));
+
+      console.log(`Converted to ${tools.length} tools`);
 
       return {
         merchant: {
@@ -144,6 +156,10 @@ class MCPService {
    */
   async executeTool(merchantId, toolName, args) {
     try {
+      console.log(`\n=== Executing Tool: ${toolName} ===`);
+      console.log('Merchant ID:', merchantId);
+      console.log('Args:', args);
+      
       // Find the API configuration by tool name in payload
       const api = await prisma.api.findFirst({
         where: {
@@ -156,14 +172,33 @@ class MCPService {
       });
 
       if (!api) {
+        console.log(`Tool '${toolName}' not found. Checking all APIs for merchant...`);
+        const allApis = await prisma.api.findMany({
+          where: { merchantId: parseInt(merchantId) }
+        });
+        console.log('Available APIs:', allApis.map(a => ({ apiType: a.apiType, payloadName: a.payload?.name })));
         throw new Error(`Tool '${toolName}' not found for merchant`);
       }
 
+      console.log('Found API config:', {
+        apiType: api.apiType,
+        url: api.payload?.url,
+        method: api.payload?.method
+      });
+
       // Prepare API request
       const requestConfig = await this.prepareApiRequest(api, args);
+      console.log('Request config:', {
+        method: requestConfig.method,
+        url: requestConfig.url,
+        params: requestConfig.params,
+        dataKeys: requestConfig.data ? Object.keys(requestConfig.data) : null
+      });
 
       // Execute API call
       const response = await axios(requestConfig);
+      console.log('API Response status:', response.status);
+      console.log('API Response data sample:', JSON.stringify(response.data).substring(0, 500));
 
       return {
         success: true,
@@ -171,7 +206,10 @@ class MCPService {
         status: response.status
       };
     } catch (error) {
-      console.error('Error executing tool:', error);
+      console.error('Error executing tool:', error.message);
+      if (error.response) {
+        console.error('Error response:', error.response.status, error.response.data);
+      }
       return {
         success: false,
         error: error.message,
