@@ -44,6 +44,7 @@ function MerchantSettings({ onLogout }) {
           primary_color: merchant.dynamicSettings?.primaryColor || '#3B82F6',
           secondary_color: merchant.dynamicSettings?.secondaryColor || '#60A5FA',
           accent_color: merchant.dynamicSettings?.accentColor || '#F472B6',
+          base_prompt: merchant.basePrompt || merchant.dynamicSettings?.basePrompt || '',
         })
 
         // Prefill API configs
@@ -93,6 +94,14 @@ function MerchantSettings({ onLogout }) {
       }
     } catch (err) {
       console.error('Error fetching settings:', err)
+      // If unauthorized, clear token and redirect to login
+      if (err.message?.includes('401') || err.message?.includes('unauthorized') || err.message?.includes('Invalid') || err.message?.includes('token')) {
+        localStorage.removeItem('auth_token')
+        localStorage.removeItem('user')
+        window.history.pushState({}, '', '/login')
+        window.dispatchEvent(new PopStateEvent('popstate'))
+        return
+      }
       setError(err.message || 'Failed to load settings')
     } finally {
       setIsLoading(false)

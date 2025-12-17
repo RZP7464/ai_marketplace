@@ -30,7 +30,7 @@ const PRESET_COLORS = [
 ]
 
 function BrandIdentity({ onNext, onBack, isSettingsMode = false, initialData = null }) {
-  const [formData, setFormData] = useState(initialData || {
+  const defaultFormData = {
     display_logo: null,
     display_name: '',
     display_tagline: '',
@@ -40,7 +40,9 @@ function BrandIdentity({ onNext, onBack, isSettingsMode = false, initialData = n
     secondary_color: '#A78BFA',
     accent_color: '#F472B6',
     base_prompt: ''
-  })
+  }
+  
+  const [formData, setFormData] = useState(initialData ? { ...defaultFormData, ...initialData } : defaultFormData)
   const [logoPreview, setLogoPreview] = useState(initialData?.logoPreview || null)
   const [errors, setErrors] = useState({})
   const [customCategory, setCustomCategory] = useState('')

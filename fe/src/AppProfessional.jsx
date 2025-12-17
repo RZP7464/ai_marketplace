@@ -30,9 +30,28 @@ function AppProfessional() {
   const [showProducts, setShowProducts] = useState(false)
   const [showCart, setShowCart] = useState(false)
   const [currentRoute, setCurrentRoute] = useState(getCurrentRoute())
-  const [merchantData, setMerchantData] = useState(null)
+  const [merchantData, setMerchantData] = useState(() => {
+    // Load user from localStorage on initial mount
+    const savedUser = localStorage.getItem('user')
+    return savedUser ? JSON.parse(savedUser) : null
+  })
   const [brandData, setBrandData] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
+  
+  // Check if user is logged in and redirect appropriately on mount
+  useEffect(() => {
+    const token = localStorage.getItem('auth_token')
+    const savedUser = localStorage.getItem('user')
+    
+    if (token && savedUser) {
+      setMerchantData(JSON.parse(savedUser))
+      // If on login page but already logged in, redirect to dashboard
+      if (currentRoute === 'auth') {
+        window.history.pushState({}, '', '/dashboard')
+        setCurrentRoute('dashboard')
+      }
+    }
+  }, [])
   
   // Listen for URL changes
   useEffect(() => {
@@ -214,7 +233,7 @@ function AppProfessional() {
 
   // Check if user is logged in for protected routes
   const isLoggedIn = () => {
-    return !!localStorage.getItem('token')
+    return !!localStorage.getItem('auth_token')
   }
 
   // Show merchant dashboard
@@ -235,7 +254,8 @@ function AppProfessional() {
       return <AuthPage onLogin={handleMerchantAuth} />
     }
     const handleLogout = () => {
-      localStorage.removeItem('token')
+      localStorage.removeItem('auth_token')
+      localStorage.removeItem('user')
       setMerchantData(null)
       setBrandData(null)
       window.history.pushState({}, '', '/login')
