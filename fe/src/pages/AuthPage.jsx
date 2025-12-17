@@ -254,7 +254,7 @@ function AuthPage({ onLogin }) {
                       value={formData.email}
                       onChange={handleInputChange}
                       placeholder="Enter your work email"
-                      className={`w-full px-4 py-3 bg-[#2a2a4a] border ${errors.email ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors`}
+                      className={`w-full px-4 py-3 bg-[#2a2a4a] border ${errors.email ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white placeholder-gray-500 focus:outline-none input-glow`}
                     />
                     {errors.email && <p className="text-red-400 text-xs mt-1">{errors.email}</p>}
                   </div>
@@ -267,7 +267,7 @@ function AuthPage({ onLogin }) {
                       value={formData.password}
                       onChange={handleInputChange}
                       placeholder="Enter your password"
-                      className={`w-full px-4 py-3 bg-[#2a2a4a] border ${errors.password ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors`}
+                      className={`w-full px-4 py-3 bg-[#2a2a4a] border ${errors.password ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white placeholder-gray-500 focus:outline-none input-glow`}
                     />
                     {errors.password && <p className="text-red-400 text-xs mt-1">{errors.password}</p>}
                   </div>
@@ -370,7 +370,7 @@ function AuthPage({ onLogin }) {
                       value={formData.email}
                       onChange={handleInputChange}
                       placeholder="Enter your work email"
-                      className={`w-full px-4 py-3 bg-[#2a2a4a] border ${errors.email ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors`}
+                      className={`w-full px-4 py-3 bg-[#2a2a4a] border ${errors.email ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white placeholder-gray-500 focus:outline-none input-glow`}
                     />
                     {errors.email && <p className="text-red-400 text-xs mt-1">{errors.email}</p>}
                   </div>
@@ -383,7 +383,7 @@ function AuthPage({ onLogin }) {
                       value={formData.password}
                       onChange={handleInputChange}
                       placeholder="Create a password"
-                      className={`w-full px-4 py-3 bg-[#2a2a4a] border ${errors.password ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors`}
+                      className={`w-full px-4 py-3 bg-[#2a2a4a] border ${errors.password ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white placeholder-gray-500 focus:outline-none input-glow`}
                     />
                     {errors.password && <p className="text-red-400 text-xs mt-1">{errors.password}</p>}
                   </div>
@@ -396,7 +396,7 @@ function AuthPage({ onLogin }) {
                       value={formData.confirmPassword}
                       onChange={handleInputChange}
                       placeholder="Confirm your password"
-                      className={`w-full px-4 py-3 bg-[#2a2a4a] border ${errors.confirmPassword ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors`}
+                      className={`w-full px-4 py-3 bg-[#2a2a4a] border ${errors.confirmPassword ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white placeholder-gray-500 focus:outline-none input-glow`}
                     />
                     {errors.confirmPassword && <p className="text-red-400 text-xs mt-1">{errors.confirmPassword}</p>}
                   </div>

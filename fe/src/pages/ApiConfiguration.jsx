@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { ChevronRight, ChevronLeft, Plus, X, Code, Search, ShoppingCart, CreditCard, MessageSquare, Ticket, Loader2, Terminal, Clipboard, Sparkles, Zap, Edit3, Trash2, Shield, Send, CheckCircle } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { ChevronRight, ChevronLeft, Plus, X, Code, Search, ShoppingCart, CreditCard, Ticket, Loader2, Terminal, Clipboard, Sparkles, Zap, Edit3, Trash2, Shield, Send, CheckCircle } from 'lucide-react'
 import apiService from '../services/api'
 
 const DEFAULT_API_CONFIGS = [
@@ -22,13 +22,6 @@ const DEFAULT_API_CONFIGS = [
     label: 'Checkout', 
     icon: CreditCard,
     description: 'API to process checkout and payments',
-    isDefault: true
-  },
-  { 
-    key: 'base_prompt', 
-    label: 'Base Prompt', 
-    icon: MessageSquare,
-    description: 'API for AI assistant base prompt configuration',
     isDefault: true
   },
   { 
@@ -159,7 +152,7 @@ const parseCurlCommand = (curlString) => {
   return config
 }
 
-function ApiConfiguration({ onNext, onBack, brandData }) {
+function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false }) {
   const [currentApiIndex, setCurrentApiIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -216,6 +209,13 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
   const [showCurlModal, setShowCurlModal] = useState(false)
   const [curlInput, setCurlInput] = useState('')
   const [parseError, setParseError] = useState('')
+
+  // In settings mode, notify parent of changes
+  useEffect(() => {
+    if (isSettingsMode && onNext) {
+      onNext({ apiConfigs, twoFactorConfigs, customApis })
+    }
+  }, [apiConfigs, twoFactorConfigs, customApis, isSettingsMode])
 
   const currentApi = API_CONFIGS[currentApiIndex]
   const currentConfig = apiConfigs[currentApi?.key] || {
@@ -489,49 +489,59 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
   const isFirstApi = currentApiIndex === 0
 
   return (
-    <div className="min-h-screen bg-[#1a1a2e] flex items-center justify-center p-4 relative overflow-hidden">
+    <div className={`${isSettingsMode ? '' : 'min-h-screen'} bg-[#1a1a2e] flex items-center justify-center p-4 relative overflow-hidden`}>
       {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
-      </div>
+      {!isSettingsMode && (
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
+        </div>
+      )}
 
       {/* Main Card */}
-      <div className="relative w-full max-w-4xl bg-[#252542] rounded-3xl shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-center gap-2 py-4 border-b border-white/5">
-          <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-          </svg>
-          <span className="text-white font-semibold tracking-wider text-sm">AGENTIC PLATFORM</span>
-        </div>
+      <div className={`relative w-full max-w-4xl ${isSettingsMode ? '' : 'bg-[#252542] rounded-3xl shadow-2xl'} overflow-hidden`}>
+        {/* Header - Hide in settings mode */}
+        {!isSettingsMode && (
+          <div className="flex items-center justify-center gap-2 py-4 border-b border-white/5">
+            <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+            <span className="text-white font-semibold tracking-wider text-sm">AGENTIC PLATFORM</span>
+          </div>
+        )}
 
-        {/* Progress Indicator */}
-        <div className="px-8 pt-6">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white text-sm font-semibold">
-                ✓
+        {/* Progress Indicator - Hide in settings mode */}
+        {!isSettingsMode && (
+          <div className="px-8 pt-6">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white text-sm font-semibold">
+                  ✓
+                </div>
+                <span className="text-gray-400 text-sm">Brand Identity</span>
               </div>
-              <span className="text-gray-400 text-sm">Brand Identity</span>
-            </div>
-            <div className="flex-1 h-1 bg-gradient-to-r from-green-500 to-purple-500 rounded mx-2"></div>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-semibold">
-                2
+              <div className="flex-1 h-1 bg-gradient-to-r from-green-500 to-purple-500 rounded mx-2"></div>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-semibold">
+                  2
+                </div>
+                <span className="text-white text-sm font-medium">API Configuration</span>
               </div>
-              <span className="text-white text-sm font-medium">API Configuration</span>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Content */}
-        <div className="p-8 bg-[#1e1e3f]">
-          <div className="flex items-center gap-3 mb-2">
-            <Code className="w-6 h-6 text-purple-400" />
-            <h2 className="text-2xl font-bold text-white">API Configuration</h2>
-          </div>
-          <p className="text-gray-400 text-sm mb-6">Configure your backend APIs for the AI shopping assistant</p>
+        <div className={`${isSettingsMode ? 'p-6' : 'p-8'} bg-[#1e1e3f]`}>
+          {!isSettingsMode && (
+            <>
+              <div className="flex items-center gap-3 mb-2">
+                <Code className="w-6 h-6 text-purple-400" />
+                <h2 className="text-2xl font-bold text-white">API Configuration</h2>
+              </div>
+              <p className="text-gray-400 text-sm mb-6">Configure your backend APIs for the AI shopping assistant</p>
+            </>
+          )}
 
           {/* API Tabs */}
           <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
@@ -541,12 +551,12 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
                 <button
                   key={api.key}
                   onClick={() => setCurrentApiIndex(index)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors duration-300 ease-out border focus:outline-none focus:ring-0 active:outline-none ${
                     currentApiIndex === index
                       ? api.isDefault 
-                        ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg'
-                        : 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg'
-                      : 'bg-[#2a2a4a] text-gray-400 hover:text-white border border-gray-700'
+                        ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white border-blue-500'
+                        : 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-emerald-500'
+                      : 'bg-[#2a2a4a] text-gray-400 hover:text-white border-gray-700 hover:border-purple-500/50'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -566,7 +576,7 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
                 setNewCustomApiDescription('')
                 setShowAddCustomModal(true)
               }}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all bg-[#2a2a4a] text-emerald-400 hover:text-emerald-300 border border-dashed border-emerald-500/50 hover:border-emerald-400"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors duration-300 ease-out focus:outline-none focus:ring-0 active:outline-none bg-[#2a2a4a] text-emerald-400 hover:text-emerald-300 border border-dashed border-emerald-500/50 hover:border-emerald-400"
             >
               <Plus className="w-4 h-4" />
               Add Custom API
@@ -612,32 +622,34 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
                   
                   {/* URL & Method */}
                   <div className="flex gap-2">
-                    <div className="w-24">
+                    <div className="flex-shrink-0">
                       <label className="block text-gray-400 text-xs mb-1">Method</label>
-                      <select
-                        value={twoFactorConfigs.send_otp.method}
-                        onChange={(e) => update2FAConfig('send_otp', 'method', e.target.value)}
-                        className="w-full px-2 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white focus:outline-none focus:border-purple-500 text-xs"
-                      >
-                        {METHODS.map(method => (
-                          <option key={method} value={method}>{method}</option>
-                        ))}
-                      </select>
+                      <div className={`relative h-[34px] rounded-lg ${METHOD_COLORS[twoFactorConfigs.send_otp.method]}`}>
+                        <select
+                          value={twoFactorConfigs.send_otp.method}
+                          onChange={(e) => update2FAConfig('send_otp', 'method', e.target.value)}
+                          className="h-full pl-3 pr-7 bg-transparent text-white font-semibold text-xs focus:outline-none cursor-pointer appearance-none"
+                        >
+                          {METHODS.map(method => (
+                            <option key={method} value={method} className="bg-[#1e1e3f] text-white">{method}</option>
+                          ))}
+                        </select>
+                        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                          <svg className="w-3 h-3 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                      </div>
                     </div>
                     <div className="flex-1">
                       <label className="block text-gray-400 text-xs mb-1">URL</label>
-                      <div className="flex items-center bg-[#1e1e3f] border border-gray-700 rounded-lg overflow-hidden">
-                        <span className={`px-2 py-2 text-xs font-semibold text-white ${METHOD_COLORS[twoFactorConfigs.send_otp.method]}`}>
-                          {twoFactorConfigs.send_otp.method}
-                        </span>
-                        <input
-                          type="text"
-                          value={twoFactorConfigs.send_otp.url}
-                          onChange={(e) => update2FAConfig('send_otp', 'url', e.target.value)}
-                          placeholder="https://api.example.com/otp/send"
-                          className="flex-1 px-2 py-2 bg-transparent text-white placeholder-gray-500 focus:outline-none text-xs"
-                        />
-                      </div>
+                      <input
+                        type="text"
+                        value={twoFactorConfigs.send_otp.url}
+                        onChange={(e) => update2FAConfig('send_otp', 'url', e.target.value)}
+                        placeholder="https://api.example.com/otp/send"
+                        className="w-full h-[34px] px-3 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-xs input-glow"
+                      />
                     </div>
                   </div>
                   
@@ -713,32 +725,34 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
                   
                   {/* URL & Method */}
                   <div className="flex gap-2">
-                    <div className="w-24">
+                    <div className="flex-shrink-0">
                       <label className="block text-gray-400 text-xs mb-1">Method</label>
-                      <select
-                        value={twoFactorConfigs.verify_otp.method}
-                        onChange={(e) => update2FAConfig('verify_otp', 'method', e.target.value)}
-                        className="w-full px-2 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white focus:outline-none focus:border-purple-500 text-xs"
-                      >
-                        {METHODS.map(method => (
-                          <option key={method} value={method}>{method}</option>
-                        ))}
-                      </select>
+                      <div className={`relative h-[34px] rounded-lg ${METHOD_COLORS[twoFactorConfigs.verify_otp.method]}`}>
+                        <select
+                          value={twoFactorConfigs.verify_otp.method}
+                          onChange={(e) => update2FAConfig('verify_otp', 'method', e.target.value)}
+                          className="h-full pl-3 pr-7 bg-transparent text-white font-semibold text-xs focus:outline-none cursor-pointer appearance-none"
+                        >
+                          {METHODS.map(method => (
+                            <option key={method} value={method} className="bg-[#1e1e3f] text-white">{method}</option>
+                          ))}
+                        </select>
+                        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                          <svg className="w-3 h-3 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                      </div>
                     </div>
                     <div className="flex-1">
                       <label className="block text-gray-400 text-xs mb-1">URL</label>
-                      <div className="flex items-center bg-[#1e1e3f] border border-gray-700 rounded-lg overflow-hidden">
-                        <span className={`px-2 py-2 text-xs font-semibold text-white ${METHOD_COLORS[twoFactorConfigs.verify_otp.method]}`}>
-                          {twoFactorConfigs.verify_otp.method}
-                        </span>
-                        <input
-                          type="text"
-                          value={twoFactorConfigs.verify_otp.url}
-                          onChange={(e) => update2FAConfig('verify_otp', 'url', e.target.value)}
-                          placeholder="https://api.example.com/otp/verify"
-                          className="flex-1 px-2 py-2 bg-transparent text-white placeholder-gray-500 focus:outline-none text-xs"
-                        />
-                      </div>
+                      <input
+                        type="text"
+                        value={twoFactorConfigs.verify_otp.url}
+                        onChange={(e) => update2FAConfig('verify_otp', 'url', e.target.value)}
+                        placeholder="https://api.example.com/otp/verify"
+                        className="w-full h-[34px] px-3 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-xs input-glow"
+                      />
                     </div>
                   </div>
                   
@@ -863,32 +877,34 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
 
               {/* URL & Method */}
               <div className="flex gap-3">
-                <div className="w-32">
+                <div className="flex-shrink-0">
                   <label className="block text-gray-400 text-xs mb-2">Method</label>
-                  <select
-                    value={currentConfig.method}
-                    onChange={(e) => updateConfig('method', e.target.value)}
-                    className="w-full px-3 py-2.5 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white focus:outline-none focus:border-purple-500 text-sm"
-                  >
-                    {METHODS.map(method => (
-                      <option key={method} value={method}>{method}</option>
-                    ))}
-                  </select>
+                  <div className={`relative h-[42px] rounded-lg ${METHOD_COLORS[currentConfig.method]}`}>
+                    <select
+                      value={currentConfig.method}
+                      onChange={(e) => updateConfig('method', e.target.value)}
+                      className="h-full pl-4 pr-8 bg-transparent text-white font-semibold text-sm focus:outline-none cursor-pointer appearance-none"
+                    >
+                      {METHODS.map(method => (
+                        <option key={method} value={method} className="bg-[#1e1e3f] text-white">{method}</option>
+                      ))}
+                    </select>
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
                 </div>
                 <div className="flex-1">
                   <label className="block text-gray-400 text-xs mb-2">URL</label>
-                  <div className="flex items-center bg-[#1e1e3f] border border-gray-700 rounded-lg overflow-hidden focus-within:border-purple-500">
-                    <span className={`px-3 py-2.5 text-xs font-semibold text-white ${METHOD_COLORS[currentConfig.method]}`}>
-                      {currentConfig.method}
-                    </span>
-                    <input
-                      type="text"
-                      value={currentConfig.url}
-                      onChange={(e) => updateConfig('url', e.target.value)}
-                      placeholder="https://api.example.com/endpoint"
-                      className="flex-1 px-3 py-2.5 bg-transparent text-white placeholder-gray-500 focus:outline-none text-sm"
-                    />
-                  </div>
+                  <input
+                    type="text"
+                    value={currentConfig.url}
+                    onChange={(e) => updateConfig('url', e.target.value)}
+                    placeholder="https://api.example.com/endpoint"
+                    className="w-full h-[42px] px-4 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-sm input-glow"
+                  />
                 </div>
               </div>
 
@@ -912,14 +928,14 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
                         value={header.key}
                         onChange={(e) => updateHeader(index, 'key', e.target.value)}
                         placeholder="Key (e.g., Authorization)"
-                        className="flex-1 px-3 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-sm"
+                        className="flex-1 px-3 py-2 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-sm input-glow"
                       />
                       <input
                         type="text"
                         value={header.value}
                         onChange={(e) => updateHeader(index, 'value', e.target.value)}
                         placeholder="Value (e.g., Bearer token)"
-                        className="flex-1 px-3 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-sm"
+                        className="flex-1 px-3 py-2 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-sm input-glow"
                       />
                       <button
                         type="button"
@@ -954,14 +970,14 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
                         value={param.key}
                         onChange={(e) => updateParam(index, 'key', e.target.value)}
                         placeholder="Key (e.g., search)"
-                        className="flex-1 px-3 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-sm"
+                        className="flex-1 px-3 py-2 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-sm input-glow"
                       />
                       <input
                         type="text"
                         value={param.value}
                         onChange={(e) => updateParam(index, 'value', e.target.value)}
                         placeholder="Value (e.g., {{query}})"
-                        className="flex-1 px-3 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-sm"
+                        className="flex-1 px-3 py-2 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-sm input-glow"
                       />
                       <button
                         type="button"
@@ -985,7 +1001,7 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
                     onChange={(e) => updateConfig('body', e.target.value)}
                     placeholder='{"key": "value"}'
                     rows={5}
-                    className="w-full px-3 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-sm font-mono resize-none"
+                    className="w-full px-3 py-2 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-sm font-mono resize-none input-glow"
                   />
                 </div>
               )}
@@ -1032,35 +1048,37 @@ function ApiConfiguration({ onNext, onBack, brandData }) {
             </div>
           )}
 
-          {/* Main Actions */}
-          <div className="flex items-center justify-between pt-6 mt-6 border-t border-gray-700">
-            <button
-              type="button"
-              onClick={onBack}
-              disabled={isLoading}
-              className="px-6 py-3 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
-            >
-              Back to Brand Identity
-            </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isLoading}
-              className="flex items-center gap-2 px-8 py-3 rounded-lg font-semibold bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:shadow-lg hover:shadow-purple-500/25 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  Complete Setup
-                  <ChevronRight className="w-5 h-5" />
-                </>
-              )}
-            </button>
-          </div>
+          {/* Main Actions - Hide in settings mode */}
+          {!isSettingsMode && (
+            <div className="flex items-center justify-between pt-6 mt-6 border-t border-gray-700">
+              <button
+                type="button"
+                onClick={onBack}
+                disabled={isLoading}
+                className="px-6 py-3 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+              >
+                Back to Brand Identity
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isLoading}
+                className="flex items-center gap-2 px-8 py-3 rounded-lg font-semibold bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:shadow-lg hover:shadow-purple-500/25 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    Complete Setup
+                    <ChevronRight className="w-5 h-5" />
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

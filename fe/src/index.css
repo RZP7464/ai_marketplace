@@ -13,6 +13,15 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  /* Remove default focus styles on buttons */
+  button:focus,
+  button:focus-visible,
+  button:active {
+    outline: none !important;
+    box-shadow: none !important;
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
 @layer components {
@@ -25,12 +34,31 @@
   }
   
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
+    background: #4b5563;
     border-radius: 3px;
   }
   
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
+    background: #6b7280;
+  }
+
+  /* Dark scrollbar for dark themed pages */
+  .scrollbar-dark::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .scrollbar-dark::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 3px;
+  }
+  
+  .scrollbar-dark::-webkit-scrollbar-thumb {
+    background: rgba(139, 92, 246, 0.4);
+    border-radius: 3px;
+  }
+  
+  .scrollbar-dark::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 92, 246, 0.6);
   }
 
   /* Hide scrollbar utility */
@@ -46,6 +74,20 @@
   /* Auth page specific styles */
   .auth-input:focus {
     @apply ring-2 ring-purple-500/50;
+  }
+
+  /* Graceful input glow effect */
+  .input-glow {
+    border-color: rgb(55, 65, 81); /* gray-700 */
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0);
+    transition: border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .input-glow:focus {
+    border-color: rgb(139, 92, 246); /* purple-500 */
+    box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.15), 
+                0 0 20px rgba(139, 92, 246, 0.1);
   }
 
   /* Gradient text animation */
