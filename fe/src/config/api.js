@@ -9,7 +9,7 @@ const getApiBaseUrl = () => {
 
   // 2. For production, use the backend URL
   if (import.meta.env.PROD) {
-    return 'https://ai-marketplace.onrender.com';
+    return 'https://ai-marketplace-api.onrender.com';
   }
 
   // 3. Development default
