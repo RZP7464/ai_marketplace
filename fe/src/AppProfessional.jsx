@@ -7,18 +7,21 @@ import ApiConfiguration from './pages/ApiConfiguration'
 import MerchantDashboardComplete from './pages/MerchantDashboardComplete'
 import MerchantSettings from './pages/MerchantSettings'
 import PublicChat from './pages/PublicChat'
+import Homepage from './pages/Homepage'
 
 function AppProfessional() {
   // Check current route
   const getCurrentRoute = () => {
     const path = window.location.pathname
+    if (path === '/' || path === '') return 'homepage'
     if (path === '/login' || path === '/merchant') return 'auth'
     if (path === '/onboarding' || path === '/brand-identity') return 'brand-identity'
     if (path === '/api-config' || path === '/api-configuration') return 'api-config'
     if (path === '/dashboard') return 'dashboard'
     if (path === '/settings') return 'settings'
+    if (path === '/chat') return 'chat'
     if (path.startsWith('/chat/')) return 'public-chat'
-    return 'main'
+    return 'homepage'
   }
   
   const [selectedChat, setSelectedChat] = useState(null)
@@ -187,6 +190,22 @@ function AppProfessional() {
     setCurrentRoute('auth')
   }
 
+  // Homepage handlers
+  const handleGetStarted = () => {
+    window.history.pushState({}, '', '/login')
+    setCurrentRoute('auth')
+  }
+
+  const handleGoToLogin = () => {
+    window.history.pushState({}, '', '/login')
+    setCurrentRoute('auth')
+  }
+
+  // Show homepage
+  if (currentRoute === 'homepage') {
+    return <Homepage onGetStarted={handleGetStarted} onLogin={handleGoToLogin} />
+  }
+
   // Show public chat (no auth required)
   if (currentRoute === 'public-chat') {
     const merchantSlug = window.location.pathname.split('/chat/')[1];
@@ -240,8 +259,10 @@ function AppProfessional() {
     return <AuthPage onLogin={handleMerchantAuth} />
   }
 
-  return (
-    <div className="flex h-screen bg-gray-50">
+  // Show chat interface (previously the main/default view)
+  if (currentRoute === 'chat') {
+    return (
+      <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
       <SidebarProfessional 
         selectedChat={selectedChat}
@@ -467,7 +488,11 @@ function AppProfessional() {
         </div>
       </div>
     </div>
-  )
+    )
+  }
+
+  // Default fallback to homepage
+  return <Homepage onGetStarted={handleGetStarted} onLogin={handleGoToLogin} />
 }
 
 export default AppProfessional
