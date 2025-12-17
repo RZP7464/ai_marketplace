@@ -468,7 +468,7 @@ RULES:
       if (typeof val === "number") return val;
       if (typeof val === "string") return parseFloat(val);
     }
-
+    
     return null;
   }
 
@@ -504,7 +504,7 @@ RULES:
         if (typeof val === "string") return this.extractNumber(val);
       }
     }
-
+    
     return null;
   }
 
@@ -553,7 +553,7 @@ RULES:
       if (typeof val === "number") return val;
       if (typeof val === "string") return parseFloat(val);
     }
-
+    
     return null;
   }
 

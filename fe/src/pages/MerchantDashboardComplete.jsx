@@ -232,12 +232,12 @@ function MerchantDashboardComplete() {
                   <div className="flex gap-2">
                     <div className="flex-1 bg-black/30 rounded-lg p-4 border border-white/10">
                       <p className="text-green-300 font-mono text-sm break-all">
-                        {window.location.origin}/chat/{merchant.slug}
+                        {window.location.origin}/chat/{merchant.id}
                       </p>
                     </div>
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/chat/${merchant.slug}`);
+                        navigator.clipboard.writeText(`${window.location.origin}/chat/${merchant.id}`);
                         const btn = event.target.closest('button');
                         const originalText = btn.innerHTML;
                         btn.innerHTML = '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> Copied!';
@@ -259,12 +259,12 @@ function MerchantDashboardComplete() {
                   <div className="flex gap-2">
                     <div className="flex-1 bg-black/30 rounded-lg p-4 border border-white/10 overflow-x-auto">
                       <code className="text-purple-300 font-mono text-xs break-all whitespace-pre-wrap">
-                        {`<iframe src="${window.location.origin}/chat/${merchant.slug}" width="100%" height="600" frameborder="0"></iframe>`}
+                        {`<iframe src="${window.location.origin}/chat/${merchant.id}" width="100%" height="600" frameborder="0"></iframe>`}
                       </code>
                     </div>
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(`<iframe src="${window.location.origin}/chat/${merchant.slug}" width="100%" height="600" frameborder="0"></iframe>`);
+                        navigator.clipboard.writeText(`<iframe src="${window.location.origin}/chat/${merchant.id}" width="100%" height="600" frameborder="0"></iframe>`);
                         const btn = event.target.closest('button');
                         const originalText = btn.innerHTML;
                         btn.innerHTML = '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> Copied!';
@@ -283,7 +283,7 @@ function MerchantDashboardComplete() {
                 {/* Quick Actions */}
                 <div className="flex gap-3 pt-2">
                   <a
-                    href={`/chat/${merchant.slug}`}
+                    href={`/chat/${merchant.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex-1 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
@@ -295,7 +295,7 @@ function MerchantDashboardComplete() {
                   </a>
                   <button
                     onClick={() => {
-                      const qrData = `${window.location.origin}/chat/${merchant.slug}`;
+                      const qrData = `${window.location.origin}/chat/${merchant.id}`;
                       window.open(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}`, '_blank');
                     }}
                     className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors flex items-center gap-2"

@@ -125,12 +125,12 @@ const MCPToolConfigForm = ({ apiConfig, onChange, defaultToolName = '', defaultD
             {compact ? "AI Tool Config" : "MCP Tool Configuration"}
           </h3>
           {!compact && (
-            <div className="relative group">
-              <Info className="w-4 h-4 text-gray-400 cursor-help" />
-              <div className="absolute left-0 top-6 w-64 p-2 bg-gray-900 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 pointer-events-none z-10 transition-opacity">
-                Configure how this API appears to the AI assistant. Add descriptions, hints, and examples to help AI use your API intelligently.
-              </div>
+          <div className="relative group">
+            <Info className="w-4 h-4 text-gray-400 cursor-help" />
+            <div className="absolute left-0 top-6 w-64 p-2 bg-gray-900 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 pointer-events-none z-10 transition-opacity">
+              Configure how this API appears to the AI assistant. Add descriptions, hints, and examples to help AI use your API intelligently.
             </div>
+          </div>
           )}
         </div>
         {isExpanded ? (
@@ -150,9 +150,9 @@ const MCPToolConfigForm = ({ apiConfig, onChange, defaultToolName = '', defaultD
             }>
               Tool Name *
               {!compact && (
-                <span className="text-xs text-gray-500 font-normal ml-2">
-                  (How AI refers to this tool)
-                </span>
+              <span className="text-xs text-gray-500 font-normal ml-2">
+                (How AI refers to this tool)
+              </span>
               )}
             </label>
             <input
@@ -166,9 +166,9 @@ const MCPToolConfigForm = ({ apiConfig, onChange, defaultToolName = '', defaultD
               }
             />
             {!compact && (
-              <p className="text-xs text-gray-500 mt-1">
-                Use snake_case, descriptive names (e.g., search_products, get_order_status)
-              </p>
+            <p className="text-xs text-gray-500 mt-1">
+              Use snake_case, descriptive names (e.g., search_products, get_order_status)
+            </p>
             )}
           </div>
 
@@ -180,9 +180,9 @@ const MCPToolConfigForm = ({ apiConfig, onChange, defaultToolName = '', defaultD
             }>
               Tool Description *
               {!compact && (
-                <span className="text-xs text-gray-500 font-normal ml-2">
-                  (When should AI use this?)
-                </span>
+              <span className="text-xs text-gray-500 font-normal ml-2">
+                (When should AI use this?)
+              </span>
               )}
             </label>
             <textarea
@@ -196,48 +196,48 @@ const MCPToolConfigForm = ({ apiConfig, onChange, defaultToolName = '', defaultD
               }
             />
             {!compact && (
-              <p className="text-xs text-gray-500 mt-1">
-                Explain when AI should use this tool and what it does
-              </p>
+            <p className="text-xs text-gray-500 mt-1">
+              Explain when AI should use this tool and what it does
+            </p>
             )}
           </div>
 
           {/* Usage Hints - Hidden in compact mode */}
           {!compact && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Usage Hints (Optional)
-                <span className="text-xs text-gray-500 font-normal ml-2">
-                  Help AI understand when to use this tool
-                </span>
-              </label>
-              {(mcpConfig.usageHints || []).map((hint, index) => (
-                <div key={index} className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={hint}
-                    onChange={(e) => updateUsageHint(index, e.target.value)}
-                    placeholder="e.g., Use when customer says 'show me' or 'find'"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeUsageHint(index)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
-                    title="Remove hint"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={addUsageHint}
-                className="text-sm text-purple-600 hover:text-purple-700 flex items-center gap-1 mt-1"
-              >
-                <Plus className="w-4 h-4" /> Add Hint
-              </button>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Usage Hints (Optional)
+              <span className="text-xs text-gray-500 font-normal ml-2">
+                Help AI understand when to use this tool
+              </span>
+            </label>
+            {(mcpConfig.usageHints || []).map((hint, index) => (
+              <div key={index} className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  value={hint}
+                  onChange={(e) => updateUsageHint(index, e.target.value)}
+                  placeholder="e.g., Use when customer says 'show me' or 'find'"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeUsageHint(index)}
+                  className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
+                  title="Remove hint"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addUsageHint}
+              className="text-sm text-purple-600 hover:text-purple-700 flex items-center gap-1 mt-1"
+            >
+              <Plus className="w-4 h-4" /> Add Hint
+            </button>
+          </div>
           )}
 
           {/* Parameters Configuration - Hidden in compact mode */}
@@ -343,18 +343,18 @@ const MCPToolConfigForm = ({ apiConfig, onChange, defaultToolName = '', defaultD
           {/* Preview Button - Hidden in compact mode */}
           {!compact && (
             <>
-              <button
-                type="button"
-                onClick={() => setShowPreview(!showPreview)}
-                className="flex items-center gap-2 text-sm text-purple-600 hover:text-purple-700 font-medium transition-colors"
-              >
-                <Eye className="w-4 h-4" />
-                {showPreview ? 'Hide' : 'Show'} AI Preview
-              </button>
+          <button
+            type="button"
+            onClick={() => setShowPreview(!showPreview)}
+            className="flex items-center gap-2 text-sm text-purple-600 hover:text-purple-700 font-medium transition-colors"
+          >
+            <Eye className="w-4 h-4" />
+            {showPreview ? 'Hide' : 'Show'} AI Preview
+          </button>
 
-              {/* Preview */}
-              {showPreview && (
-                <MCPToolPreview mcpConfig={mcpConfig} detectedParams={detectedParams} />
+          {/* Preview */}
+          {showPreview && (
+            <MCPToolPreview mcpConfig={mcpConfig} detectedParams={detectedParams} />
               )}
             </>
           )}

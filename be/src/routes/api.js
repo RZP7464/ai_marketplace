@@ -133,7 +133,9 @@ router.get("/", authenticateToken, async (req, res) => {
 router.get("/:apiType", authenticateToken, async (req, res) => {
   try {
     const merchantId = req.user.merchantId;
-    const normalizedApiType = req.params.apiType.toLowerCase().replace(/[_\s]/g, "");
+    const normalizedApiType = req.params.apiType
+      .toLowerCase()
+      .replace(/[_\s]/g, "");
 
     if (!API_TYPES.includes(normalizedApiType)) {
       return res.status(400).json({
@@ -181,7 +183,9 @@ router.get("/:apiType", authenticateToken, async (req, res) => {
 router.put("/:apiType", authenticateToken, async (req, res) => {
   try {
     const merchantId = req.user.merchantId;
-    const normalizedApiType = req.params.apiType.toLowerCase().replace(/[_\s]/g, "");
+    const normalizedApiType = req.params.apiType
+      .toLowerCase()
+      .replace(/[_\s]/g, "");
     const { payload, config, authId } = req.body;
 
     if (!API_TYPES.includes(normalizedApiType)) {
@@ -258,27 +262,46 @@ router.put("/:apiType", authenticateToken, async (req, res) => {
 router.delete("/:apiType", authenticateToken, async (req, res) => {
   try {
     const merchantId = req.user.merchantId;
-    const normalizedApiType = req.params.apiType.toLowerCase().replace(/[_\s]/g, "");
+    const apiType = req.params.apiType;
 
-    if (!API_TYPES.includes(normalizedApiType)) {
+    // Allow both standard API types and custom API types (custom_*)
+    const isCustomApi = apiType.startsWith("custom_");
+    const normalizedApiType = isCustomApi
+      ? apiType // Keep custom API type as-is
+      : apiType.toLowerCase().replace(/[_\s]/g, "");
+
+    // Validate standard API types, but allow custom ones
+    if (!isCustomApi && !API_TYPES.includes(normalizedApiType)) {
       return res.status(400).json({
         success: false,
-        error: `Invalid apiType. Must be one of: ${API_TYPES.join(", ")}`,
+        error: `Invalid apiType. Must be one of: ${API_TYPES.join(
+          ", "
+        )} or a custom API (custom_*)`,
       });
     }
 
-    // Find existing API
-    const existingApi = await prisma.api.findFirst({
+    // Find existing API - check both exact match and normalized match for backwards compatibility
+    let existingApi = await prisma.api.findFirst({
       where: {
         merchantId,
-        apiType: normalizedApiType,
+        apiType: apiType, // Try exact match first
       },
     });
+
+    // If not found with exact match, try normalized
+    if (!existingApi && !isCustomApi) {
+      existingApi = await prisma.api.findFirst({
+        where: {
+          merchantId,
+          apiType: normalizedApiType,
+        },
+      });
+    }
 
     if (!existingApi) {
       return res.status(404).json({
         success: false,
-        error: `API configuration for '${normalizedApiType}' not found`,
+        error: `API configuration for '${apiType}' not found`,
       });
     }
 
@@ -286,9 +309,11 @@ router.delete("/:apiType", authenticateToken, async (req, res) => {
       where: { id: existingApi.id },
     });
 
+    console.log(`Deleted API ${apiType} for merchant ${merchantId}`);
+
     res.json({
       success: true,
-      message: `API configuration for '${normalizedApiType}' deleted successfully`,
+      message: `API configuration for '${apiType}' deleted successfully`,
     });
   } catch (error) {
     console.error("Delete API error:", error);
@@ -355,9 +380,12 @@ router.post("/bulk", authenticateToken, async (req, res) => {
       // Upsert API configuration
       const api = await prisma.api.upsert({
         where: {
-          id: (await prisma.api.findFirst({
-            where: { merchantId, apiType: normalizedApiType },
-          }))?.id || 0,
+          id:
+            (
+              await prisma.api.findFirst({
+                where: { merchantId, apiType: normalizedApiType },
+              })
+            )?.id || 0,
         },
         create: {
           apiType: normalizedApiType,
@@ -399,4 +427,3 @@ router.post("/bulk", authenticateToken, async (req, res) => {
 });
 
 module.exports = router;
-

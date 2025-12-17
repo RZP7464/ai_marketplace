@@ -83,9 +83,26 @@ class MCPService {
       });
 
       // Convert ONLY the valid APIs to MCP tools
-      const tools = validApis.map((api) => this.convertApiToTool(api));
+      const allTools = validApis.map((api) => this.convertApiToTool(api));
 
-      console.log(`🔧 Converted ${tools.length} valid APIs to MCP tools`);
+      // Deduplicate tools by name (Gemini doesn't allow duplicate function names)
+      const seenNames = new Set();
+      const tools = allTools.filter((tool) => {
+        if (seenNames.has(tool.name)) {
+          console.log(`  ⚠️ Skipping duplicate tool: ${tool.name}`);
+          return false;
+        }
+        seenNames.add(tool.name);
+        return true;
+      });
+
+      if (allTools.length !== tools.length) {
+        console.log(
+          `  ⚠️ Removed ${allTools.length - tools.length} duplicate tool(s)`
+        );
+      }
+
+      console.log(`🔧 Converted ${tools.length} unique APIs to MCP tools`);
       console.log(`   Tools available: ${tools.map((t) => t.name).join(", ")}`);
 
       return {
@@ -122,8 +139,10 @@ class MCPService {
     // Fallback to auto-generation (backward compatible)
     console.log(`  🔄 Auto-generating tool config for: ${api.apiType}`);
 
-    // Generate tool name from payload name or API type
-    const toolName = payload.name || this.generateToolName(api.apiType, config);
+    // Generate tool name from payload name or API type - SANITIZE to ensure valid function name
+    const toolName = this.sanitizeToolName(
+      payload.name || this.generateToolName(api.apiType, config)
+    );
 
     // Generate input schema from payload and config
     const inputSchema = this.generateInputSchema(payload, config);
@@ -156,8 +175,8 @@ class MCPService {
     const config = api.config;
     const payload = api.payload;
 
-    // Use custom tool name
-    const toolName = mcpConfig.toolName;
+    // Use custom tool name - SANITIZE to ensure valid function name for Gemini
+    const toolName = this.sanitizeToolName(mcpConfig.toolName);
 
     // Build input schema from custom parameter configs
     const inputSchema = this.generateInputSchemaWithConfig(
@@ -242,7 +261,11 @@ class MCPService {
           type: "string",
           description: "The OTP code entered by user to verify",
         };
-        required.push("phone_number", "otp_code");
+        properties["request_id"] = {
+          type: "string",
+          description: "The request_id returned from send_otp API response (required to verify the correct OTP session)",
+        };
+        required.push("phone_number", "otp_code", "request_id");
       } else {
         // Generic query parameter for other tools
         properties["query"] = {
@@ -390,19 +413,34 @@ class MCPService {
   }
 
   /**
+   * Sanitize a tool name to be valid for Gemini API
+   * Rules: alphanumeric (a-z, A-Z, 0-9), underscores (_), dots (.), colons (:), or dashes (-)
+   * Must start with a letter or underscore, max 64 characters
+   */
+  sanitizeToolName(name) {
+    if (!name) return "unnamed_tool";
+
+    return (
+      name
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "_") // Replace spaces with underscores
+        .replace(/[^a-z0-9_.\-:]+/g, "_") // Replace invalid chars with underscore
+        .replace(/^[^a-z_]+/, "_") // Ensure starts with letter or underscore
+        .replace(/_+/g, "_") // Replace multiple underscores with single
+        .replace(/^_+|_+$/g, "") // Remove leading/trailing underscores
+        .substring(0, 64) || // Max length 64
+      "unnamed_tool"
+    ); // Fallback if everything was stripped
+  }
+
+  /**
    * Generate tool name from API type and config
    */
   generateToolName(apiType, config) {
-    // Use custom name if provided, otherwise generate from API type
-    if (config.toolName) {
-      return config.toolName;
-    }
-
-    // Clean and format API type as tool name
-    return apiType
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_+|_+$/g, "");
+    // Use custom name if provided, otherwise use API type
+    const baseName = config?.toolName || apiType || "tool";
+    return baseName; // Sanitization happens in sanitizeToolName
   }
 
   /**
@@ -546,43 +584,35 @@ class MCPService {
       console.log("Merchant ID:", merchantId);
       console.log("Args:", args);
 
-      // Find the API configuration by tool name in payload.name OR payload.mcpConfig.toolName
-      let api = await prisma.api.findFirst({
-        where: {
-          merchantId: parseInt(merchantId),
-          payload: { path: ["name"], equals: toolName },
-        },
-        include: {
-          credential: true,
-        },
+      // Sanitize the incoming tool name for comparison
+      const sanitizedToolName = this.sanitizeToolName(toolName);
+      console.log(`Sanitized tool name: ${sanitizedToolName}`);
+
+      // Fetch all APIs for the merchant and find by sanitized name comparison
+      // This handles cases where DB has unsanitized names (e.g., trailing spaces)
+      const allApis = await prisma.api.findMany({
+        where: { merchantId: parseInt(merchantId) },
+        include: { credential: true },
       });
 
-      // If not found by payload.name, try payload.mcpConfig.toolName
-      if (!api) {
-        api = await prisma.api.findFirst({
-          where: {
-            merchantId: parseInt(merchantId),
-            payload: { path: ["mcpConfig", "toolName"], equals: toolName },
-          },
-          include: {
-            credential: true,
-          },
-        });
-      }
+      // Find API by comparing sanitized tool names
+      let api = allApis.find((a) => {
+        const dbToolName =
+          a.payload?.mcpConfig?.toolName || a.payload?.name || a.apiType;
+        const sanitizedDbName = this.sanitizeToolName(dbToolName);
+        return sanitizedDbName === sanitizedToolName;
+      });
 
       if (!api) {
+        console.log(`Tool '${toolName}' not found. Available APIs:`);
         console.log(
-          `Tool '${toolName}' not found. Checking all APIs for merchant...`
-        );
-        const allApis = await prisma.api.findMany({
-          where: { merchantId: parseInt(merchantId) },
-        });
-        console.log(
-          "Available APIs:",
           allApis.map((a) => ({
             apiType: a.apiType,
             payloadName: a.payload?.name,
             mcpToolName: a.payload?.mcpConfig?.toolName,
+            sanitizedName: this.sanitizeToolName(
+              a.payload?.mcpConfig?.toolName || a.payload?.name || a.apiType
+            ),
           }))
         );
         throw new Error(`Tool '${toolName}' not found for merchant`);
@@ -877,6 +907,7 @@ class MCPService {
       ],
       product_id: ["productId", "product_id", "id", "itemId", "item_id"],
       quantity: ["quantity", "qty", "count", "amount"],
+      request_id: ["request_id", "requestId", "reqId", "req_id", "sessionId", "session_id"],
     };
 
     // For each arg, check if it maps to a body field
@@ -908,22 +939,53 @@ class MCPService {
   /**
    * Recursively replace placeholders in object
    */
-  replacePlaceholders(obj, args) {
+  replacePlaceholders(obj, args, isJsonString = false) {
     if (typeof obj === "string") {
       // Replace {{placeholder}} with actual value
-      return obj.replace(/\{\{(\w+)\}\}/g, (match, key) => {
-        return args[key] !== undefined ? args[key] : match;
-      });
+      // For JSON strings, we need to handle quoting properly
+      return obj.replace(
+        /("?)(\{\{(\w+)\}\})("?)/g,
+        (match, leadingQuote, placeholder, key, trailingQuote) => {
+          const value = args[key];
+          if (value === undefined) return match;
+
+          // Check if placeholder is already quoted in the template
+          const isQuoted = leadingQuote === '"' && trailingQuote === '"';
+
+          if (isQuoted) {
+            // Already quoted, just replace the placeholder content
+            // But we need to escape the value if it's a string
+            return `"${String(value).replace(/"/g, '\\"')}"`;
+          } else {
+            // Not quoted - need to determine if value needs quotes
+            // Numbers can stay unquoted, strings need quotes for valid JSON
+            if (
+              typeof value === "number" ||
+              (typeof value === "string" &&
+                !isNaN(Number(value)) &&
+                value.trim() !== "")
+            ) {
+              // Looks like a number, keep unquoted
+              return value;
+            } else {
+              // String value - needs to be properly JSON quoted
+              return JSON.stringify(String(value));
+            }
+          }
+        }
+      );
     }
 
     if (Array.isArray(obj)) {
-      return obj.map((item) => this.replacePlaceholders(item, args));
+      return obj.map((item) =>
+        this.replacePlaceholders(item, args, isJsonString)
+      );
     }
 
     if (obj && typeof obj === "object") {
       const result = {};
       for (const [key, value] of Object.entries(obj)) {
-        result[key] = this.replacePlaceholders(value, args);
+        result[key] = this.replacePlaceholders(value, args, isJsonString);
       }
       return result;
     }

@@ -126,12 +126,12 @@ const ProductCard = ({ product }) => {
       {/* Image */}
       {image && !imgError ? (
         <div className="relative aspect-square bg-gray-100">
-          <img
-            src={image}
+        <img
+          src={image}
             alt={name}
             className="w-full h-full object-cover"
-            onError={() => setImgError(true)}
-          />
+          onError={() => setImgError(true)}
+        />
           {/* Discount Badge */}
           {discount && (
             <div className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded">
@@ -164,7 +164,7 @@ const ProductCard = ({ product }) => {
         {/* Name */}
         <h4 className="text-sm font-medium text-gray-900 line-clamp-2 mb-1.5 min-h-[2.5rem]">
           {name}
-        </h4>
+      </h4>
 
         {/* Category Tag */}
         {category && (
@@ -194,17 +194,17 @@ const ProductCard = ({ product }) => {
         )}
 
         {/* View Link */}
-        {url && (
-          <a
+      {url && (
+        <a
             href={url}
-            target="_blank"
-            rel="noopener noreferrer"
+          target="_blank"
+          rel="noopener noreferrer"
             className="mt-2 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
-          >
+        >
             View Product
             <ExternalLink className="w-3 h-3" />
-          </a>
-        )}
+        </a>
+      )}
       </div>
     </div>
   );

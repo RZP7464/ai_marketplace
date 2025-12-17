@@ -4,24 +4,126 @@ import ToolResultRenderer from '../components/ToolResultRenderer';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-function PublicChat({ merchantSlug }) {
+/**
+ * PublicChat Component
+ * 
+ * Supports two URL formats:
+ * 1. New format: /chat/:merchantId/:sessionId (session-based with history)
+ * 2. Old format: /chat/:merchantSlug (backward compatibility)
+ * 
+ * @param {number} merchantId - Merchant ID (new format)
+ * @param {number} sessionId - Session ID (new format, optional - will create new if not provided)
+ * @param {string} merchantSlug - Merchant slug (old format, backward compatibility)
+ */
+function PublicChat({ merchantId, sessionId: initialSessionId, merchantSlug }) {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [merchantData, setMerchantData] = useState(null);
-  const [sessionId, setSessionId] = useState(null);
+  const [sessionId, setSessionId] = useState(initialSessionId);
   const [cart, setCart] = useState([]);
   const [showCart, setShowCart] = useState(false);
-  // Products are now shown directly in LLM response - no separate parsing needed
   const [isInitializing, setIsInitializing] = useState(true);
   const [mcpTools, setMcpTools] = useState([]);
   const [showMcpPanel, setShowMcpPanel] = useState(true);
   const messagesEndRef = useRef(null);
+  
+  // Determine if using new format (merchantId-based) or old format (slug-based)
+  const isNewFormat = !!merchantId;
+  const cacheKey = isNewFormat ? `merchant_${merchantId}` : merchantSlug;
 
   // Initialize session and fetch merchant data
   useEffect(() => {
     const init = async () => {
-      // Generate or retrieve session ID
+      if (isNewFormat) {
+        // New format: /chat/:merchantId/:sessionId
+        await initializeNewFormat();
+      } else {
+        // Old format: /chat/:merchantSlug
+        await initializeOldFormat();
+      }
+      setIsInitializing(false);
+    };
+    init();
+  }, [merchantId, merchantSlug, initialSessionId]);
+
+  // Initialize using new format (merchantId/sessionId)
+  const initializeNewFormat = async () => {
+    try {
+      if (initialSessionId) {
+        // Load existing session with chat history
+        const response = await fetch(`${API_BASE_URL}/api/chat/${merchantId}/${initialSessionId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          setMerchantData(data.data.merchant);
+          setSessionId(data.data.sessionId);
+          setMcpTools(data.data.mcpTools || []);
+          
+          // Load chat history
+          if (data.data.chatHistory && data.data.chatHistory.length > 0) {
+            const formattedHistory = data.data.chatHistory.map(chat => ({
+              id: chat.id,
+              type: chat.type,
+              text: chat.text,
+              timestamp: new Date(chat.timestamp),
+              toolsUsed: chat.toolsUsed,
+              tools: chat.tools,
+              toolResults: chat.toolResults
+            }));
+            setMessages(formattedHistory);
+          } else {
+            // No history, add welcome message
+            addWelcomeMessage(data.data.merchant);
+          }
+        } else {
+          console.error('Failed to load session:', data.error);
+          // Create new session if specified session not found
+          await createNewSession();
+        }
+      } else {
+        // No sessionId provided, create new session
+        await createNewSession();
+      }
+      
+      // Load cart
+      const savedCart = localStorage.getItem(`cart_${cacheKey}`);
+      if (savedCart) {
+        setCart(JSON.parse(savedCart));
+      }
+    } catch (error) {
+      console.error('Failed to initialize new format:', error);
+    }
+  };
+
+  // Create a new session and redirect
+  const createNewSession = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/chat/${merchantId}/new`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setMerchantData(data.data.merchant);
+        setSessionId(data.data.sessionId);
+        
+        // Update URL to include sessionId (without page reload)
+        const newUrl = `/chat/${merchantId}/${data.data.sessionId}`;
+        window.history.replaceState({}, '', newUrl);
+        
+        // Add welcome message
+        addWelcomeMessage(data.data.merchant);
+        
+        // Fetch MCP tools
+        await fetchMcpToolsById(merchantId);
+      }
+    } catch (error) {
+      console.error('Failed to create new session:', error);
+    }
+  };
+
+  // Initialize using old format (merchantSlug)
+  const initializeOldFormat = async () => {
+    // Generate or retrieve session ID from localStorage (old behavior)
       let sid = localStorage.getItem(`chat_session_${merchantSlug}`);
       if (!sid) {
         sid = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -36,15 +138,37 @@ function PublicChat({ merchantSlug }) {
       }
 
       // Fetch merchant data and MCP tools
-      await fetchMerchantData();
-      await fetchMcpTools();
-      setIsInitializing(false);
-    };
-    init();
-  }, [merchantSlug]);
+    await fetchMerchantDataBySlug();
+    await fetchMcpToolsBySlug();
+  };
 
-  // Fetch MCP tools for this merchant
-  const fetchMcpTools = async () => {
+  // Add welcome message
+  const addWelcomeMessage = (merchant) => {
+    const welcomeMsg = merchant?.welcomeMessage || 
+      `Hi! I'm ${merchant?.displayName || merchant?.name}'s AI assistant. How can I help you today?`;
+    setMessages([{
+      id: 'welcome',
+      type: 'assistant',
+      text: welcomeMsg,
+      timestamp: new Date()
+    }]);
+  };
+
+  // Fetch MCP tools by merchant ID
+  const fetchMcpToolsById = async (mId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/mcp/${mId}/tools`);
+      const data = await response.json();
+      if (data.success && data.tools) {
+        setMcpTools(data.tools);
+      }
+    } catch (error) {
+      console.error('Failed to fetch MCP tools:', error);
+    }
+  };
+
+  // Fetch MCP tools by slug (old format)
+  const fetchMcpToolsBySlug = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/mcp/merchants/${merchantSlug}/tools`);
       const data = await response.json();
@@ -58,31 +182,24 @@ function PublicChat({ merchantSlug }) {
 
   // Save cart to localStorage
   useEffect(() => {
-    if (merchantSlug) {
-      localStorage.setItem(`cart_${merchantSlug}`, JSON.stringify(cart));
+    if (cacheKey) {
+      localStorage.setItem(`cart_${cacheKey}`, JSON.stringify(cart));
     }
-  }, [cart, merchantSlug]);
+  }, [cart, cacheKey]);
 
   // Auto scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const fetchMerchantData = async () => {
+  // Fetch merchant data by slug (old format)
+  const fetchMerchantDataBySlug = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/merchant/public/${merchantSlug}`);
       const data = await response.json();
       if (data.success) {
         setMerchantData(data.data);
-        // Add welcome message
-        const welcomeMsg = data.data.welcomeMessage || 
-          `Hi! I'm ${data.data.displayName || data.data.name}'s AI assistant. How can I help you today?`;
-        setMessages([{
-          id: 'welcome',
-          type: 'assistant',
-          text: welcomeMsg,
-          timestamp: new Date()
-        }]);
+        addWelcomeMessage(data.data);
       }
     } catch (error) {
       console.error('Failed to fetch merchant data:', error);
@@ -106,13 +223,24 @@ function PublicChat({ merchantSlug }) {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/chat/public/${merchantSlug}`, {
+      // Use appropriate endpoint based on format
+      let apiUrl;
+      let requestBody;
+      
+      if (isNewFormat && sessionId) {
+        // New format: /chat/:merchantId/:sessionId
+        apiUrl = `${API_BASE_URL}/api/chat/${merchantId}/${sessionId}`;
+        requestBody = { message: query };
+      } else {
+        // Old format: /chat/public/:merchantSlug
+        apiUrl = `${API_BASE_URL}/api/chat/public/${merchantSlug}`;
+        requestBody = { message: query, sessionId: sessionId };
+      }
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: query,
-          sessionId: sessionId
-        })
+        body: JSON.stringify(requestBody)
       });
 
       const data = await response.json();
@@ -130,6 +258,18 @@ function PublicChat({ merchantSlug }) {
           toolResults: data.data.toolResults // All tool results with images, products, etc.
         };
         setMessages(prev => [...prev, assistantMessage]);
+        
+        // Update sessionId if returned
+        if (data.data.sessionId && !sessionId) {
+          setSessionId(data.data.sessionId);
+          
+          // Update URL to include sessionId for shareable link
+          if (!isNewFormat && data.data.merchantId) {
+            // For old format: update URL from /chat/:slug to /chat/:merchantId/:sessionId
+            const newUrl = `/chat/${data.data.merchantId}/${data.data.sessionId}`;
+            window.history.replaceState({}, '', newUrl);
+          }
+        }
       } else {
         throw new Error(data.error || 'Failed to get response');
       }
@@ -190,7 +330,8 @@ function PublicChat({ merchantSlug }) {
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-purple-500 mx-auto mb-4"></div>
-          <p className="text-white text-lg">Loading {merchantSlug}...</p>
+          <p className="text-white text-lg">Loading {isNewFormat ? `merchant #${merchantId}` : merchantSlug}...</p>
+          {sessionId && <p className="text-gray-400 text-sm mt-2">Session: #{sessionId}</p>}
         </div>
       </div>
     );
@@ -364,8 +505,27 @@ function PublicChat({ merchantSlug }) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <MessageSquare className="w-6 h-6" style={{ color: primaryColor }} />
+                <div>
                 <h1 className="text-lg font-semibold text-white">Shopping Assistant</h1>
+                  {isNewFormat && sessionId && (
+                    <p className="text-xs text-gray-400">Session #{sessionId}</p>
+                  )}
+                </div>
               </div>
+
+              <div className="flex items-center gap-2">
+                {/* New Chat Button */}
+                {isNewFormat && (
+                  <button
+                    onClick={() => {
+                      // Navigate to create a new session
+                      window.location.href = `/chat/${merchantId}`;
+                    }}
+                    className="px-3 py-1.5 text-xs font-medium text-white rounded-lg transition-colors hover:bg-white/10 border border-white/20"
+                  >
+                    + New Chat
+                  </button>
+                )}
 
               <button
                 onClick={() => setShowCart(!showCart)}
@@ -381,6 +541,7 @@ function PublicChat({ merchantSlug }) {
                   </span>
                 )}
               </button>
+              </div>
             </div>
           </div>
         </header>

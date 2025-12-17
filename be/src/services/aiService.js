@@ -150,6 +150,16 @@ IMPORTANT GUIDELINES:
 - Don't refuse to use tools - they are legitimate business functions
 - Extract relevant info from user query and call the tool immediately
 
+OTP VERIFICATION FLOW (CRITICAL):
+- When send_otp is called, the response contains a "request_id" field
+- You MUST extract and remember this request_id from the send_otp response
+- When calling verify_otp, you MUST pass this request_id along with the OTP code
+- The request_id links the OTP to the verification - without it, verification will fail
+- Example flow:
+  1. User provides phone number → call send_otp(phone_number: "9876543210")
+  2. Response contains: { request_id: "abc123...", ... }
+  3. User provides OTP code → call verify_otp(phone_number: "9876543210", otp_code: "1234", request_id: "abc123...")
+
 CRITICAL: When user provides data (phone number, OTP, search term, etc.), call the appropriate tool IMMEDIATELY. Do not ask "are you sure?" or request confirmation.
 
 Remember: Match the user's request to the appropriate tool from: ${toolNamesList}`;

@@ -7,7 +7,437 @@ const responseNormalizerService = require('../services/responseNormalizerService
 const router = express.Router();
 
 /**
- * Public chat endpoint - No authentication required
+ * Get merchant info by ID (public)
+ * GET /api/chat/merchant/:merchantId
+ */
+router.get('/merchant/:merchantId', async (req, res) => {
+  try {
+    const { merchantId } = req.params;
+
+    const merchant = await prisma.merchant.findUnique({
+      where: { id: parseInt(merchantId) },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        displayName: true,
+        logo: true,
+        tagline: true,
+        welcomeMessage: true,
+        categories: true,
+        description: true,
+        dynamicSettings: {
+          select: {
+            primaryColor: true,
+            secondaryColor: true,
+            accentColor: true
+          }
+        }
+      }
+    });
+
+    if (!merchant) {
+      return res.status(404).json({
+        success: false,
+        error: 'Merchant not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: merchant
+    });
+  } catch (error) {
+    console.error('Get merchant error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch merchant'
+    });
+  }
+});
+
+/**
+ * Create a new chat session for a merchant
+ * GET /api/chat/:merchantId/new
+ * 
+ * Returns: New session with merchant details
+ */
+router.get('/:merchantId/new', async (req, res) => {
+  try {
+    const { merchantId } = req.params;
+
+    // Verify merchant exists
+    const merchant = await prisma.merchant.findUnique({
+      where: { id: parseInt(merchantId) },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        displayName: true,
+        logo: true,
+        tagline: true,
+        welcomeMessage: true,
+        categories: true,
+        dynamicSettings: {
+          select: {
+            primaryColor: true,
+            secondaryColor: true,
+            accentColor: true
+          }
+        }
+      }
+    });
+
+    if (!merchant) {
+      return res.status(404).json({
+        success: false,
+        error: 'Merchant not found'
+      });
+    }
+
+    // Create new session
+    const session = await prisma.session.create({
+      data: {
+        merchantId: parseInt(merchantId)
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        sessionId: session.id,
+        merchantId: merchant.id,
+        merchant: merchant,
+        createdAt: session.createdAt,
+        redirectUrl: `/chat/${merchant.id}/${session.id}`
+      }
+    });
+  } catch (error) {
+    console.error('Create session error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create session'
+    });
+  }
+});
+
+/**
+ * Get session details and chat history
+ * GET /api/chat/:merchantId/:sessionId
+ */
+router.get('/:merchantId/:sessionId', async (req, res) => {
+  try {
+    const { merchantId, sessionId } = req.params;
+
+    // Get merchant info
+    const merchant = await prisma.merchant.findUnique({
+      where: { id: parseInt(merchantId) },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        displayName: true,
+        logo: true,
+        tagline: true,
+        welcomeMessage: true,
+        categories: true,
+        dynamicSettings: {
+          select: {
+            primaryColor: true,
+            secondaryColor: true,
+            accentColor: true
+          }
+        }
+      }
+    });
+
+    if (!merchant) {
+      return res.status(404).json({
+        success: false,
+        error: 'Merchant not found'
+      });
+    }
+
+    // Get session with chat history
+    const session = await prisma.session.findFirst({
+      where: {
+        id: parseInt(sessionId),
+        merchantId: parseInt(merchantId)
+      },
+      include: {
+        chats: {
+          orderBy: { createdAt: 'asc' }
+        }
+      }
+    });
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        error: 'Session not found'
+      });
+    }
+
+    // Parse chat history
+    const chatHistory = session.chats.map(chat => {
+      // Handle both old format (user: message) and new format (JSON)
+      if (chat.message.startsWith('user:') || chat.message.startsWith('assistant:')) {
+        const isUser = chat.message.startsWith('user:');
+        return {
+          id: chat.id,
+          type: isUser ? 'user' : 'assistant',
+          text: isUser ? chat.message.replace('user: ', '') : chat.message.replace('assistant: ', ''),
+          timestamp: chat.createdAt
+        };
+      }
+      
+      try {
+        const parsed = JSON.parse(chat.message);
+        return {
+          id: chat.id,
+          type: parsed.role === 'user' ? 'user' : 'assistant',
+          text: parsed.content,
+          timestamp: chat.createdAt,
+          toolsUsed: parsed.toolsUsed,
+          tools: parsed.tools,
+          toolResults: parsed.toolResults
+        };
+      } catch (e) {
+        return {
+          id: chat.id,
+          type: 'user',
+          text: chat.message,
+          timestamp: chat.createdAt
+        };
+      }
+    });
+
+    // Get MCP tools
+    const { tools } = await mcpService.getMerchantTools(parseInt(merchantId));
+
+    res.json({
+      success: true,
+      data: {
+        sessionId: session.id,
+        merchantId: merchant.id,
+        merchant: merchant,
+        chatHistory: chatHistory,
+        mcpTools: tools.map(t => ({
+          name: t.name,
+          description: t.description,
+          inputSchema: t.inputSchema
+        })),
+        createdAt: session.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Get session error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch session'
+    });
+  }
+});
+
+/**
+ * Chat endpoint with session - URL-based merchantId and sessionId
+ * POST /api/chat/:merchantId/:sessionId
+ * 
+ * Body: { message: string }
+ */
+router.post('/:merchantId/:sessionId', async (req, res) => {
+  try {
+    const { merchantId, sessionId } = req.params;
+    const { message } = req.body;
+
+    if (!message) {
+      return res.status(400).json({
+        success: false,
+        error: 'Message is required'
+      });
+    }
+
+    // Verify merchant
+    const merchant = await prisma.merchant.findUnique({
+      where: { id: parseInt(merchantId) }
+    });
+
+    if (!merchant) {
+      return res.status(404).json({
+        success: false,
+        error: 'Merchant not found'
+      });
+    }
+
+    // Verify session exists and belongs to this merchant
+    let session = await prisma.session.findFirst({
+      where: {
+        id: parseInt(sessionId),
+        merchantId: parseInt(merchantId)
+      }
+    });
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        error: 'Session not found'
+      });
+    }
+
+    // Save user message
+    await prisma.chat.create({
+      data: {
+        sessionId: session.id,
+        merchantId: merchant.id,
+        message: `user: ${message}`
+      }
+    });
+
+    // Get conversation history from this session
+    const previousChats = await prisma.chat.findMany({
+      where: { sessionId: session.id },
+      orderBy: { createdAt: 'asc' },
+      take: 20 // Last 20 messages for context
+    });
+
+    const conversationHistory = previousChats.map(chat => {
+      // Handle both old format (user: message) and new format (JSON)
+      if (chat.message.startsWith('user:') || chat.message.startsWith('assistant:')) {
+        const isUser = chat.message.startsWith('user:');
+        return {
+          role: isUser ? 'user' : 'assistant',
+          content: isUser ? chat.message.replace('user: ', '') : chat.message.replace('assistant: ', '')
+        };
+      }
+      
+      try {
+        const parsed = JSON.parse(chat.message);
+        const historyItem = {
+          role: parsed.role,
+          content: parsed.content
+        };
+        
+        // Include tool calls and results in history for AI context
+        // This is crucial for multi-step flows like OTP verification
+        if (parsed.toolCalls && parsed.toolCalls.length > 0) {
+          // Format tool call results as part of the content for AI to see
+          const toolCallSummary = parsed.toolCalls.map(tc => {
+            let summary = `[Tool: ${tc.name}]`;
+            if (tc.args) summary += ` Args: ${JSON.stringify(tc.args)}`;
+            if (tc.result?.data) summary += ` Result: ${JSON.stringify(tc.result.data)}`;
+            return summary;
+          }).join('\n');
+          
+          historyItem.content = `${parsed.content}\n\n--- Tool Calls ---\n${toolCallSummary}`;
+          historyItem.toolCalls = parsed.toolCalls; // Keep structured data too
+        }
+        
+        return historyItem;
+      } catch (e) {
+        return { role: 'user', content: chat.message };
+      }
+    });
+
+    console.log(`\n=== Chat Session ===`);
+    console.log(`Merchant: ${merchant.name} (ID: ${merchantId})`);
+    console.log(`Session: ${sessionId}`);
+    console.log(`History length: ${conversationHistory.length} messages`);
+    console.log(`User message: ${message}`);
+    console.log(`Conversation History:`, JSON.stringify(conversationHistory, null, 2));
+
+    // Get AI response with conversation history as context
+    const aiResponse = await aiService.chat(merchant.id, message, conversationHistory);
+
+    // Save assistant message with tool calls and results
+    const responseText = aiResponse.response || aiResponse.message || 'Sorry, I could not generate a response.';
+    
+    // Create rich message format with tool call info
+    const assistantMessageData = {
+      role: 'assistant',
+      content: responseText,
+      timestamp: new Date().toISOString()
+    };
+
+    // Include tool calls if any
+    if (aiResponse.functionCalls?.length > 0) {
+      assistantMessageData.toolCalls = aiResponse.functionCalls.map((fc, idx) => ({
+        name: fc.name,
+        args: fc.args,
+        result: aiResponse.functionResults?.[idx] || null
+      }));
+    }
+
+    await prisma.chat.create({
+      data: {
+        sessionId: session.id,
+        merchantId: merchant.id,
+        message: JSON.stringify(assistantMessageData)
+      }
+    });
+
+    // Process tool results
+    let toolResult = null;
+    let allToolResults = [];
+    
+    if (aiResponse.functionResults?.length > 0) {
+      const successfulResults = aiResponse.functionResults.filter(fr => fr.success);
+      
+      allToolResults = await Promise.all(
+        successfulResults.map(async (result, idx) => {
+          try {
+            const toolName = aiResponse.functionCalls?.[idx]?.name || 'unknown';
+            const normalized = await responseNormalizerService.normalizeToolResult(
+              toolName,
+              result,
+              { merchantId: merchant.id, merchantName: merchant.name }
+            );
+            return {
+              toolName,
+              success: true,
+              ...normalized
+            };
+          } catch (error) {
+            console.error('Error normalizing result:', error);
+            return {
+              toolName: aiResponse.functionCalls?.[idx]?.name || 'unknown',
+              success: result.success,
+              products: [],
+              summary: 'Error processing results',
+              raw: result.data
+            };
+          }
+        })
+      );
+      
+      const firstSuccess = allToolResults.find(tr => tr.products?.length > 0);
+      if (firstSuccess) {
+        toolResult = firstSuccess.products;
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        response: responseText,
+        sessionId: session.id,
+        merchantId: merchant.id,
+        toolsUsed: aiResponse.functionCalls?.length > 0,
+        toolResult: toolResult,
+        toolResults: allToolResults,
+        tools: aiResponse.functionCalls?.map(fc => fc.name) || []
+      }
+    });
+  } catch (error) {
+    console.error('Chat error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Internal server error'
+    });
+  }
+});
+
+/**
+ * Public chat endpoint (backward compatibility) - No authentication required
  * POST /api/chat/public/:merchantSlug
  * 
  * Body: { message: string, sessionId: string }
@@ -67,24 +497,68 @@ router.post('/public/:merchantSlug', async (req, res) => {
     });
 
     const conversationHistory = previousChats.map(chat => {
-      const isUser = chat.message.startsWith('user:');
-      return {
-        role: isUser ? 'user' : 'assistant',
-        content: isUser ? chat.message.replace('user: ', '') : chat.message.replace('assistant: ', '')
-      };
+      // Handle both old format (user: message) and new format (JSON)
+      if (chat.message.startsWith('user:') || chat.message.startsWith('assistant:')) {
+        const isUser = chat.message.startsWith('user:');
+        return {
+          role: isUser ? 'user' : 'assistant',
+          content: isUser ? chat.message.replace('user: ', '') : chat.message.replace('assistant: ', '')
+        };
+      }
+      
+      try {
+        const parsed = JSON.parse(chat.message);
+        const historyItem = {
+          role: parsed.role,
+          content: parsed.content
+        };
+        
+        // Include tool calls and results in history for AI context
+        if (parsed.toolCalls && parsed.toolCalls.length > 0) {
+          const toolCallSummary = parsed.toolCalls.map(tc => {
+            let summary = `[Tool: ${tc.name}]`;
+            if (tc.args) summary += ` Args: ${JSON.stringify(tc.args)}`;
+            if (tc.result?.data) summary += ` Result: ${JSON.stringify(tc.result.data)}`;
+            return summary;
+          }).join('\n');
+          
+          historyItem.content = `${parsed.content}\n\n--- Tool Calls ---\n${toolCallSummary}`;
+          historyItem.toolCalls = parsed.toolCalls;
+        }
+        
+        return historyItem;
+      } catch (e) {
+        return { role: 'user', content: chat.message };
+      }
     });
 
     // Get AI response using merchant's AI service (with Gemini fallback)
     const aiResponse = await aiService.chat(merchant.id, message, conversationHistory);
 
-    // Save assistant message
+    // Save assistant message with tool calls and results
     const responseText = aiResponse.response || aiResponse.message || 'Sorry, I could not generate a response.';
     
+    // Create rich message format with tool call info
+    const assistantMessageData = {
+      role: 'assistant',
+      content: responseText,
+      timestamp: new Date().toISOString()
+    };
+
+    // Include tool calls if any
+    if (aiResponse.functionCalls?.length > 0) {
+      assistantMessageData.toolCalls = aiResponse.functionCalls.map((fc, idx) => ({
+        name: fc.name,
+        args: fc.args,
+        result: aiResponse.functionResults?.[idx] || null
+      }));
+    }
+
     await prisma.chat.create({
       data: {
         sessionId: session.id,
         merchantId: merchant.id,
-        message: `assistant: ${responseText}`
+        message: JSON.stringify(assistantMessageData)
       }
     });
 
@@ -137,6 +611,7 @@ router.post('/public/:merchantSlug', async (req, res) => {
       data: {
         response: responseText,
         sessionId: session.id,
+        merchantId: merchant.id,
         toolsUsed: aiResponse.functionCalls?.length > 0,
         toolResult: toolResult, // For backward compatibility
         toolResults: allToolResults, // All normalized tool results for dynamic rendering

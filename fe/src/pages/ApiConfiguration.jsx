@@ -1,120 +1,140 @@
-import React, { useState, useEffect } from 'react'
-import { ChevronRight, ChevronLeft, Plus, X, Code, Search, ShoppingCart, CreditCard, Ticket, Loader2, Terminal, Clipboard, Sparkles, Zap, Edit3, Trash2, Shield, Send, CheckCircle } from 'lucide-react'
-import apiService from '../services/api'
-import MCPToolConfigForm from '../components/MCPToolConfigForm'
+import React, { useState, useEffect } from "react";
+import {
+  ChevronRight,
+  ChevronLeft,
+  Plus,
+  X,
+  Code,
+  Search,
+  ShoppingCart,
+  CreditCard,
+  Ticket,
+  Loader2,
+  Terminal,
+  Clipboard,
+  Sparkles,
+  Zap,
+  Edit3,
+  Trash2,
+  Shield,
+  Send,
+  CheckCircle,
+} from "lucide-react";
+import apiService from "../services/api";
+import MCPToolConfigForm from "../components/MCPToolConfigForm";
 
 const DEFAULT_API_CONFIGS = [
   { 
-    key: 'search_item', 
-    label: 'Search Items', 
+    key: "search_item",
+    label: "Search Items",
     icon: Search,
-    description: 'API to search and fetch products from your catalog',
-    isDefault: true
-  },
-  { 
-    key: 'add_to_cart', 
-    label: 'Add to Cart', 
-    icon: ShoppingCart,
-    description: 'API to add items to shopping cart',
-    isDefault: true
-  },
-  { 
-    key: 'checkout', 
-    label: 'Checkout', 
-    icon: CreditCard,
-    description: 'API to process checkout and payments',
-    isDefault: true
-  },
-  { 
-    key: 'coupons', 
-    label: 'Coupons', 
-    icon: Ticket,
-    description: 'API to fetch and validate discount coupons',
-    isDefault: true
-  },
-  { 
-    key: '2fa', 
-    label: '2FA', 
-    icon: Shield,
-    description: 'Two-factor authentication APIs (Send & Verify OTP)',
+    description: "API to search and fetch products from your catalog",
     isDefault: true,
-    isSpecial: true // Special flag for 2FA to render differently
-  }
-]
+  },
+  { 
+    key: "add_to_cart",
+    label: "Add to Cart",
+    icon: ShoppingCart,
+    description: "API to add items to shopping cart",
+    isDefault: true,
+  },
+  { 
+    key: "checkout",
+    label: "Checkout",
+    icon: CreditCard,
+    description: "API to process checkout and payments",
+    isDefault: true,
+  },
+  { 
+    key: "coupons",
+    label: "Coupons",
+    icon: Ticket,
+    description: "API to fetch and validate discount coupons",
+    isDefault: true,
+  },
+  { 
+    key: "2fa",
+    label: "2FA",
+    icon: Shield,
+    description: "Two-factor authentication APIs (Send & Verify OTP)",
+    isDefault: true,
+    isSpecial: true, // Special flag for 2FA to render differently
+  },
+];
 
-const METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']
+const METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH"];
 
 const METHOD_COLORS = {
-  GET: 'bg-green-500',
-  POST: 'bg-blue-500',
-  PUT: 'bg-yellow-500',
-  DELETE: 'bg-red-500',
-  PATCH: 'bg-purple-500'
-}
+  GET: "bg-green-500",
+  POST: "bg-blue-500",
+  PUT: "bg-yellow-500",
+  DELETE: "bg-red-500",
+  PATCH: "bg-purple-500",
+};
 
 // Parse curl command and extract API configuration
 const parseCurlCommand = (curlString) => {
   const config = {
-    url: '',
-    method: 'GET',
+    url: "",
+    method: "GET",
     headers: [],
     params: [],
-    body: ''
-  }
+    body: "",
+  };
 
   // Clean up the curl string - remove line continuations and extra whitespace
   let cleanCurl = curlString
-    .replace(/\\\n/g, ' ')
-    .replace(/\\\r\n/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
+    .replace(/\\\n/g, " ")
+    .replace(/\\\r\n/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
   // Extract method using -X or --request
-  const methodMatch = cleanCurl.match(/(?:-X|--request)\s+['"]?(\w+)['"]?/i)
+  const methodMatch = cleanCurl.match(/(?:-X|--request)\s+['"]?(\w+)['"]?/i);
   if (methodMatch) {
-    config.method = methodMatch[1].toUpperCase()
-  } else if (cleanCurl.includes('--data') || cleanCurl.includes('-d ')) {
+    config.method = methodMatch[1].toUpperCase();
+  } else if (cleanCurl.includes("--data") || cleanCurl.includes("-d ")) {
     // If there's data but no explicit method, it's POST
-    config.method = 'POST'
+    config.method = "POST";
   }
 
   // Extract URL - handle both quoted and unquoted URLs
   const urlPatterns = [
     /curl\s+(?:.*?\s+)?['"]?(https?:\/\/[^\s'"]+)['"]?/i,
-    /['"]?(https?:\/\/[^\s'"]+)['"]?/i
-  ]
+    /['"]?(https?:\/\/[^\s'"]+)['"]?/i,
+  ];
   
   for (const pattern of urlPatterns) {
-    const urlMatch = cleanCurl.match(pattern)
+    const urlMatch = cleanCurl.match(pattern);
     if (urlMatch) {
-      let fullUrl = urlMatch[1]
+      let fullUrl = urlMatch[1];
       
       // Parse URL to extract query params
       try {
-        const urlObj = new URL(fullUrl)
-        config.url = `${urlObj.origin}${urlObj.pathname}`
+        const urlObj = new URL(fullUrl);
+        config.url = `${urlObj.origin}${urlObj.pathname}`;
         
         // Extract query parameters
         urlObj.searchParams.forEach((value, key) => {
-          config.params.push({ key, value })
-        })
+          config.params.push({ key, value });
+        });
       } catch {
-        config.url = fullUrl
+        config.url = fullUrl;
       }
-      break
+      break;
     }
   }
 
   // Extract headers using -H or --header
-  const headerRegex = /(?:-H|--header)\s+['"]([^'"]+)['"]/gi
-  let headerMatch
+  const headerRegex = /(?:-H|--header)\s+['"]([^'"]+)['"]/gi;
+  let headerMatch;
   while ((headerMatch = headerRegex.exec(cleanCurl)) !== null) {
-    const headerStr = headerMatch[1]
-    const colonIndex = headerStr.indexOf(':')
+    const headerStr = headerMatch[1];
+    const colonIndex = headerStr.indexOf(":");
     if (colonIndex > 0) {
-      const key = headerStr.substring(0, colonIndex).trim()
-      const value = headerStr.substring(colonIndex + 1).trim()
-      config.headers.push({ key, value })
+      const key = headerStr.substring(0, colonIndex).trim();
+      const value = headerStr.substring(colonIndex + 1).trim();
+      config.headers.push({ key, value });
     }
   }
 
@@ -124,413 +144,497 @@ const parseCurlCommand = (curlString) => {
     /(?:--data-raw|--data-binary|--data|-d)\s+"([^"]+)"/i,
     /(?:--data-raw|--data-binary|--data|-d)\s+(\{[^}]+\})/i,
     /(?:--data-raw|--data-binary|--data|-d)\s+'({[\s\S]*?})'/i,
-    /(?:--data-raw|--data-binary|--data|-d)\s+"({[\s\S]*?})"/i
-  ]
+    /(?:--data-raw|--data-binary|--data|-d)\s+"({[\s\S]*?})"/i,
+  ];
 
   for (const pattern of dataPatterns) {
-    const dataMatch = cleanCurl.match(pattern)
+    const dataMatch = cleanCurl.match(pattern);
     if (dataMatch) {
-      let bodyData = dataMatch[1]
+      let bodyData = dataMatch[1];
       // Try to pretty print JSON
       try {
-        const parsed = JSON.parse(bodyData)
-        config.body = JSON.stringify(parsed, null, 2)
+        const parsed = JSON.parse(bodyData);
+        config.body = JSON.stringify(parsed, null, 2);
       } catch {
-        config.body = bodyData
+        config.body = bodyData;
       }
-      break
+      break;
     }
   }
 
   // Ensure at least one empty header/param if none found
   if (config.headers.length === 0) {
-    config.headers.push({ key: '', value: '' })
+    config.headers.push({ key: "", value: "" });
   }
   if (config.params.length === 0) {
-    config.params.push({ key: '', value: '' })
+    config.params.push({ key: "", value: "" });
   }
 
-  return config
-}
+  return config;
+};
 
-function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, initialApiConfigs = null, initial2FAConfigs = null }) {
-  const [currentApiIndex, setCurrentApiIndex] = useState(0)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [customApis, setCustomApis] = useState([])
-  const [showAddCustomModal, setShowAddCustomModal] = useState(false)
-  const [newCustomApiName, setNewCustomApiName] = useState('')
-  const [newCustomApiDescription, setNewCustomApiDescription] = useState('')
-  const [editingCustomApi, setEditingCustomApi] = useState(null)
+function ApiConfiguration({
+  onNext,
+  onBack,
+  brandData,
+  isSettingsMode = false,
+  initialApiConfigs = null,
+  initial2FAConfigs = null,
+  initialCustomApis = null,
+}) {
+  const [currentApiIndex, setCurrentApiIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [customApis, setCustomApis] = useState(() => {
+    // Initialize with custom APIs from props if available
+    if (initialCustomApis && initialCustomApis.length > 0) {
+      return initialCustomApis;
+    }
+    return [];
+  });
+  const [showAddCustomModal, setShowAddCustomModal] = useState(false);
+  const [newCustomApiName, setNewCustomApiName] = useState("");
+  const [newCustomApiDescription, setNewCustomApiDescription] = useState("");
+  const [editingCustomApi, setEditingCustomApi] = useState(null);
   
   // Combine default and custom APIs
   const API_CONFIGS = [
     ...DEFAULT_API_CONFIGS,
-    ...customApis.map(api => ({
+    ...customApis.map((api) => ({
       key: api.key,
       label: api.label,
       icon: Zap,
       description: api.description,
-      isDefault: false
-    }))
-  ]
+      isDefault: false,
+    })),
+  ];
   
   const [apiConfigs, setApiConfigs] = useState(() => {
     // If initial configs provided, use them
     if (initialApiConfigs) {
       // Merge with default structure to ensure all fields exist
-      const merged = DEFAULT_API_CONFIGS.filter(api => api.key !== '2fa').reduce((acc, api) => ({
+      const merged = DEFAULT_API_CONFIGS.filter(
+        (api) => api.key !== "2fa"
+      ).reduce(
+        (acc, api) => ({
         ...acc,
         [api.key]: initialApiConfigs[api.key] || {
-          url: '',
-          method: 'GET',
-          headers: [{ key: '', value: '' }],
-          params: [{ key: '', value: '' }],
-          body: ''
+            url: "",
+            method: "GET",
+            headers: [{ key: "", value: "" }],
+            params: [{ key: "", value: "" }],
+            body: "",
+          },
+        }),
+        {}
+      );
+
+      // Also include custom API configs (keys starting with 'custom_' or not in defaults)
+      const defaultKeys = DEFAULT_API_CONFIGS.map((api) => api.key);
+      Object.keys(initialApiConfigs).forEach((key) => {
+        if (!defaultKeys.includes(key) && key !== "2fa") {
+          merged[key] = initialApiConfigs[key];
         }
-      }), {})
-      return merged
+      });
+
+      return merged;
     }
     
     // Default empty configs
-    return DEFAULT_API_CONFIGS.filter(api => api.key !== '2fa').reduce((acc, api) => ({
+    return DEFAULT_API_CONFIGS.filter((api) => api.key !== "2fa").reduce(
+      (acc, api) => ({
       ...acc,
       [api.key]: {
-        url: '',
-        method: 'GET',
-        headers: [{ key: '', value: '' }],
-        params: [{ key: '', value: '' }],
-        body: ''
-      }
-    }), {})
-  })
+          url: "",
+          method: "GET",
+          headers: [{ key: "", value: "" }],
+          params: [{ key: "", value: "" }],
+          body: "",
+        },
+      }),
+      {}
+    );
+  });
   
   // 2FA specific state - use initial values if provided
   const [twoFactorConfigs, setTwoFactorConfigs] = useState(() => {
     const defaultSendOtp = {
-      url: '',
-      method: 'POST',
-      headers: [{ key: '', value: '' }],
-      params: [{ key: '', value: '' }],
+      url: "",
+      method: "POST",
+      headers: [{ key: "", value: "" }],
+      params: [{ key: "", value: "" }],
       body: '{\n  "phone": "{{phone_number}}"\n}',
       mcpConfig: {
-        toolName: 'send_otp',
-        toolDescription: 'Send OTP to user phone number or email for authentication. Use this when user wants to login, verify identity, or authenticate.',
-        usageHints: ['user wants to login', 'send verification code', 'authenticate user'],
-        parameters: {}
-      }
-    }
+        toolName: "send_otp",
+        toolDescription:
+          "Send OTP to user phone number or email for authentication. Use this when user wants to login, verify identity, or authenticate.",
+        usageHints: [
+          "user wants to login",
+          "send verification code",
+          "authenticate user",
+        ],
+        parameters: {},
+      },
+    };
     const defaultVerifyOtp = {
-      url: '',
-      method: 'POST',
-      headers: [{ key: '', value: '' }],
-      params: [{ key: '', value: '' }],
+      url: "",
+      method: "POST",
+      headers: [{ key: "", value: "" }],
+      params: [{ key: "", value: "" }],
       body: '{\n  "phone": "{{phone_number}}",\n  "otp": "{{otp_code}}"\n}',
       mcpConfig: {
-        toolName: 'verify_otp',
-        toolDescription: 'Verify OTP code entered by user. Use this after user has received OTP and provides the code to verify.',
-        usageHints: ['user entered otp', 'verify code', 'confirm otp'],
-        parameters: {}
-      }
-    }
-    
+        toolName: "verify_otp",
+        toolDescription:
+          "Verify OTP code entered by user. Use this after user has received OTP and provides the code to verify.",
+        usageHints: ["user entered otp", "verify code", "confirm otp"],
+        parameters: {},
+      },
+    };
+
     if (initial2FAConfigs) {
       return {
         send_otp: { ...defaultSendOtp, ...initial2FAConfigs.send_otp },
-        verify_otp: { ...defaultVerifyOtp, ...initial2FAConfigs.verify_otp }
-      }
+        verify_otp: { ...defaultVerifyOtp, ...initial2FAConfigs.verify_otp },
+      };
     }
     return {
       send_otp: defaultSendOtp,
-      verify_otp: defaultVerifyOtp
-    }
-  })
-  const [curlTarget, setCurlTarget] = useState(null) // For 2FA: 'send_otp' or 'verify_otp'
+      verify_otp: defaultVerifyOtp,
+    };
+  });
+  const [curlTarget, setCurlTarget] = useState(null); // For 2FA: 'send_otp' or 'verify_otp'
   
-  const [showCurlModal, setShowCurlModal] = useState(false)
-  const [curlInput, setCurlInput] = useState('')
-  const [parseError, setParseError] = useState('')
+  const [showCurlModal, setShowCurlModal] = useState(false);
+  const [curlInput, setCurlInput] = useState("");
+  const [parseError, setParseError] = useState("");
 
   // In settings mode, notify parent of changes
   useEffect(() => {
     if (isSettingsMode && onNext) {
-      onNext({ apiConfigs, twoFactorConfigs, customApis })
+      onNext({ apiConfigs, twoFactorConfigs, customApis });
     }
-  }, [apiConfigs, twoFactorConfigs, customApis, isSettingsMode])
+  }, [apiConfigs, twoFactorConfigs, customApis, isSettingsMode]);
 
-  const currentApi = API_CONFIGS[currentApiIndex]
+  const currentApi = API_CONFIGS[currentApiIndex];
   const currentConfig = apiConfigs[currentApi?.key] || {
-    url: '',
-    method: 'GET',
-    headers: [{ key: '', value: '' }],
-    params: [{ key: '', value: '' }],
-    body: ''
-  }
+    url: "",
+    method: "GET",
+    headers: [{ key: "", value: "" }],
+    params: [{ key: "", value: "" }],
+    body: "",
+  };
 
   const updateConfig = (field, value) => {
-    setApiConfigs(prev => ({
+    setApiConfigs((prev) => ({
       ...prev,
       [currentApi.key]: {
         ...prev[currentApi.key],
-        [field]: value
-      }
-    }))
-  }
+        [field]: value,
+      },
+    }));
+  };
 
   const addHeader = () => {
-    updateConfig('headers', [...currentConfig.headers, { key: '', value: '' }])
-  }
+    updateConfig("headers", [...currentConfig.headers, { key: "", value: "" }]);
+  };
 
   const removeHeader = (index) => {
     if (currentConfig.headers.length > 1) {
-      updateConfig('headers', currentConfig.headers.filter((_, i) => i !== index))
+      updateConfig(
+        "headers",
+        currentConfig.headers.filter((_, i) => i !== index)
+      );
     }
-  }
+  };
 
   const updateHeader = (index, field, value) => {
-    const newHeaders = [...currentConfig.headers]
-    newHeaders[index][field] = value
-    updateConfig('headers', newHeaders)
-  }
+    const newHeaders = [...currentConfig.headers];
+    newHeaders[index][field] = value;
+    updateConfig("headers", newHeaders);
+  };
 
   const addParam = () => {
-    updateConfig('params', [...currentConfig.params, { key: '', value: '' }])
-  }
+    updateConfig("params", [...currentConfig.params, { key: "", value: "" }]);
+  };
 
   const removeParam = (index) => {
     if (currentConfig.params.length > 1) {
-      updateConfig('params', currentConfig.params.filter((_, i) => i !== index))
+      updateConfig(
+        "params",
+        currentConfig.params.filter((_, i) => i !== index)
+      );
     }
-  }
+  };
 
   const updateParam = (index, field, value) => {
-    const newParams = [...currentConfig.params]
-    newParams[index][field] = value
-    updateConfig('params', newParams)
-  }
+    const newParams = [...currentConfig.params];
+    newParams[index][field] = value;
+    updateConfig("params", newParams);
+  };
 
   // 2FA Config helpers
   const update2FAConfig = (configType, field, value) => {
-    setTwoFactorConfigs(prev => ({
+    setTwoFactorConfigs((prev) => ({
       ...prev,
-      [configType]: { ...prev[configType], [field]: value }
-    }))
-  }
+      [configType]: { ...prev[configType], [field]: value },
+    }));
+  };
 
   const add2FAHeader = (configType) => {
-    setTwoFactorConfigs(prev => ({
+    setTwoFactorConfigs((prev) => ({
       ...prev,
-      [configType]: { ...prev[configType], headers: [...prev[configType].headers, { key: '', value: '' }] }
-    }))
-  }
+      [configType]: {
+        ...prev[configType],
+        headers: [...prev[configType].headers, { key: "", value: "" }],
+      },
+    }));
+  };
 
   const remove2FAHeader = (configType, index) => {
     if (twoFactorConfigs[configType].headers.length > 1) {
-      setTwoFactorConfigs(prev => ({
+      setTwoFactorConfigs((prev) => ({
         ...prev,
-        [configType]: { ...prev[configType], headers: prev[configType].headers.filter((_, i) => i !== index) }
-      }))
+        [configType]: {
+          ...prev[configType],
+          headers: prev[configType].headers.filter((_, i) => i !== index),
+        },
+      }));
     }
-  }
+  };
 
   const update2FAHeader = (configType, index, field, value) => {
-    const newHeaders = [...twoFactorConfigs[configType].headers]
-    newHeaders[index][field] = value
-    setTwoFactorConfigs(prev => ({
+    const newHeaders = [...twoFactorConfigs[configType].headers];
+    newHeaders[index][field] = value;
+    setTwoFactorConfigs((prev) => ({
       ...prev,
-      [configType]: { ...prev[configType], headers: newHeaders }
-    }))
-  }
+      [configType]: { ...prev[configType], headers: newHeaders },
+    }));
+  };
 
   const goToNextApi = () => {
     if (currentApiIndex < API_CONFIGS.length - 1) {
-      setCurrentApiIndex(currentApiIndex + 1)
+      setCurrentApiIndex(currentApiIndex + 1);
     }
-  }
+  };
 
   const goToPrevApi = () => {
     if (currentApiIndex > 0) {
-      setCurrentApiIndex(currentApiIndex - 1)
+      setCurrentApiIndex(currentApiIndex - 1);
     }
-  }
+  };
 
   // Custom API management
   const handleAddCustomApi = () => {
-    if (!newCustomApiName.trim()) return
+    if (!newCustomApiName.trim()) return;
     
-    const key = `custom_${Date.now()}`
+    const key = `custom_${Date.now()}`;
     const newApi = {
       key,
       label: newCustomApiName.trim(),
-      description: newCustomApiDescription.trim() || 'Custom API endpoint'
-    }
+      description: newCustomApiDescription.trim() || "Custom API endpoint",
+    };
     
-    setCustomApis(prev => [...prev, newApi])
-    setApiConfigs(prev => ({
+    setCustomApis((prev) => [...prev, newApi]);
+    setApiConfigs((prev) => ({
       ...prev,
       [key]: {
-        url: '',
-        method: 'GET',
-        headers: [{ key: '', value: '' }],
-        params: [{ key: '', value: '' }],
-        body: ''
-      }
-    }))
+        url: "",
+        method: "GET",
+        headers: [{ key: "", value: "" }],
+        params: [{ key: "", value: "" }],
+        body: "",
+      },
+    }));
     
     // Navigate to the new custom API
-    setCurrentApiIndex(API_CONFIGS.length) // Will be the index of the new API
+    setCurrentApiIndex(API_CONFIGS.length); // Will be the index of the new API
     
     // Reset and close modal
-    setNewCustomApiName('')
-    setNewCustomApiDescription('')
-    setShowAddCustomModal(false)
-  }
+    setNewCustomApiName("");
+    setNewCustomApiDescription("");
+    setShowAddCustomModal(false);
+  };
 
   const handleEditCustomApi = (api) => {
-    setEditingCustomApi(api)
-    setNewCustomApiName(api.label)
-    setNewCustomApiDescription(api.description)
-    setShowAddCustomModal(true)
-  }
+    setEditingCustomApi(api);
+    setNewCustomApiName(api.label);
+    setNewCustomApiDescription(api.description);
+    setShowAddCustomModal(true);
+  };
 
   const handleUpdateCustomApi = () => {
-    if (!newCustomApiName.trim() || !editingCustomApi) return
+    if (!newCustomApiName.trim() || !editingCustomApi) return;
     
-    setCustomApis(prev => prev.map(api => 
+    setCustomApis((prev) =>
+      prev.map((api) =>
       api.key === editingCustomApi.key
-        ? { ...api, label: newCustomApiName.trim(), description: newCustomApiDescription.trim() || 'Custom API endpoint' }
+          ? {
+              ...api,
+              label: newCustomApiName.trim(),
+              description:
+                newCustomApiDescription.trim() || "Custom API endpoint",
+            }
         : api
-    ))
+      )
+    );
     
     // Reset and close modal
-    setNewCustomApiName('')
-    setNewCustomApiDescription('')
-    setEditingCustomApi(null)
-    setShowAddCustomModal(false)
-  }
+    setNewCustomApiName("");
+    setNewCustomApiDescription("");
+    setEditingCustomApi(null);
+    setShowAddCustomModal(false);
+  };
 
-  const handleDeleteCustomApi = (apiKey) => {
-    const apiIndex = API_CONFIGS.findIndex(api => api.key === apiKey)
+  const handleDeleteCustomApi = async (apiKey) => {
+    // Confirm before deleting
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this API? This action cannot be undone."
+    );
+    if (!confirmed) return;
+
+    const apiIndex = API_CONFIGS.findIndex((api) => api.key === apiKey);
+
+    try {
+      // Call backend API to delete from database
+      if (isSettingsMode) {
+        const response = await apiService.deleteMerchantApi(apiKey);
+        if (!response.success) {
+          throw new Error(response.error || "Failed to delete API");
+        }
+      }
     
-    // Remove from custom APIs
-    setCustomApis(prev => prev.filter(api => api.key !== apiKey))
+      // Remove from custom APIs (local state)
+      setCustomApis((prev) => prev.filter((api) => api.key !== apiKey));
     
-    // Remove config
-    setApiConfigs(prev => {
-      const newConfigs = { ...prev }
-      delete newConfigs[apiKey]
-      return newConfigs
-    })
+      // Remove config (local state)
+      setApiConfigs((prev) => {
+        const newConfigs = { ...prev };
+        delete newConfigs[apiKey];
+        return newConfigs;
+      });
     
     // Adjust current index if needed
     if (currentApiIndex >= apiIndex && currentApiIndex > 0) {
-      setCurrentApiIndex(currentApiIndex - 1)
+        setCurrentApiIndex(currentApiIndex - 1);
     }
+    } catch (err) {
+      console.error("Delete API error:", err);
+      alert("Failed to delete API: " + err.message);
   }
+  };
 
   const handleSubmit = async () => {
-    setIsLoading(true)
-    setError('')
+    setIsLoading(true);
+    setError("");
 
     try {
       // Call the complete setup API
       const response = await apiService.completeSetup({
         brandData,
         apiConfigs,
-        twoFactorConfigs
-      })
+        twoFactorConfigs,
+      });
 
       if (response.success) {
-        console.log('Setup completed:', response.data)
-        onNext({ brandData, apiConfigs, twoFactorConfigs, setupResult: response.data })
+        console.log("Setup completed:", response.data);
+        onNext({
+          brandData,
+          apiConfigs,
+          twoFactorConfigs,
+          setupResult: response.data,
+        });
       } else {
-        setError(response.error || 'Failed to complete setup')
+        setError(response.error || "Failed to complete setup");
       }
     } catch (err) {
-      console.error('Setup error:', err)
-      setError(err.message || 'Something went wrong. Please try again.')
+      console.error("Setup error:", err);
+      setError(err.message || "Something went wrong. Please try again.");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleParseCurl = () => {
-    setParseError('')
+    setParseError("");
     if (!curlInput.trim()) {
-      setParseError('Please paste a curl command')
-      return
+      setParseError("Please paste a curl command");
+      return;
     }
 
-    if (!curlInput.toLowerCase().includes('curl')) {
-      setParseError('Invalid curl command. Make sure it starts with "curl"')
-      return
+    if (!curlInput.toLowerCase().includes("curl")) {
+      setParseError('Invalid curl command. Make sure it starts with "curl"');
+      return;
     }
 
     try {
-      const parsed = parseCurlCommand(curlInput)
+      const parsed = parseCurlCommand(curlInput);
       
       if (!parsed.url) {
-        setParseError('Could not extract URL from curl command')
-        return
+        setParseError("Could not extract URL from curl command");
+        return;
       }
 
       // Check if this is for 2FA APIs
       if (curlTarget) {
-        setTwoFactorConfigs(prev => ({
+        setTwoFactorConfigs((prev) => ({
           ...prev,
           [curlTarget]: {
             url: parsed.url,
             method: parsed.method,
             headers: parsed.headers,
             params: parsed.params,
-            body: parsed.body
-          }
-        }))
+            body: parsed.body,
+          },
+        }));
       } else {
         // Apply parsed config to current API
-        setApiConfigs(prev => ({
+        setApiConfigs((prev) => ({
           ...prev,
           [currentApi.key]: {
             url: parsed.url,
             method: parsed.method,
             headers: parsed.headers,
             params: parsed.params,
-            body: parsed.body
-          }
-        }))
+            body: parsed.body,
+          },
+        }));
       }
 
       // Close modal and reset
-      setShowCurlModal(false)
-      setCurlInput('')
-      setCurlTarget(null)
+      setShowCurlModal(false);
+      setCurlInput("");
+      setCurlTarget(null);
     } catch (err) {
-      setParseError('Failed to parse curl command. Please check the format.')
+      setParseError("Failed to parse curl command. Please check the format.");
     }
-  }
+  };
 
   const openCurlModal = (target = null) => {
-    setCurlTarget(target)
-    setCurlInput('')
-    setParseError('')
-    setShowCurlModal(true)
-  }
+    setCurlTarget(target);
+    setCurlInput("");
+    setParseError("");
+    setShowCurlModal(true);
+  };
 
   const handlePasteFromClipboard = async () => {
     try {
-      const text = await navigator.clipboard.readText()
-      setCurlInput(text)
-      setParseError('')
+      const text = await navigator.clipboard.readText();
+      setCurlInput(text);
+      setParseError("");
     } catch (err) {
-      setParseError('Could not access clipboard. Please paste manually.')
+      setParseError("Could not access clipboard. Please paste manually.");
     }
-  }
+  };
 
-  const isLastApi = currentApiIndex === API_CONFIGS.length - 1
-  const isFirstApi = currentApiIndex === 0
+  const isLastApi = currentApiIndex === API_CONFIGS.length - 1;
+  const isFirstApi = currentApiIndex === 0;
 
   return (
-    <div className={`${isSettingsMode ? '' : 'min-h-screen'} bg-[#1a1a2e] flex items-center justify-center p-4 relative overflow-hidden`}>
+    <div
+      className={`${
+        isSettingsMode ? "" : "min-h-screen"
+      } bg-[#1a1a2e] flex items-center justify-center p-4 relative overflow-hidden`}
+    >
       {/* Background decoration */}
       {!isSettingsMode && (
         <div className="absolute inset-0 overflow-hidden">
@@ -540,14 +644,26 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
       )}
 
       {/* Main Card */}
-      <div className={`relative w-full max-w-4xl ${isSettingsMode ? '' : 'bg-[#252542] rounded-3xl shadow-2xl'} overflow-hidden`}>
+      <div
+        className={`relative w-full max-w-4xl ${
+          isSettingsMode ? "" : "bg-[#252542] rounded-3xl shadow-2xl"
+        } overflow-hidden`}
+      >
         {/* Header - Hide in settings mode */}
         {!isSettingsMode && (
           <div className="flex items-center justify-center gap-2 py-4 border-b border-white/5">
-            <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              className="w-6 h-6 text-white"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
             </svg>
-            <span className="text-white font-semibold tracking-wider text-sm">AGENTIC PLATFORM</span>
+            <span className="text-white font-semibold tracking-wider text-sm">
+              AGENTIC PLATFORM
+            </span>
           </div>
         )}
 
@@ -566,28 +682,34 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
                 <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-semibold">
                   2
                 </div>
-                <span className="text-white text-sm font-medium">API Configuration</span>
+                <span className="text-white text-sm font-medium">
+                  API Configuration
+                </span>
               </div>
             </div>
           </div>
         )}
 
         {/* Content */}
-        <div className={`${isSettingsMode ? 'p-6' : 'p-8'} bg-[#1e1e3f]`}>
+        <div className={`${isSettingsMode ? "p-6" : "p-8"} bg-[#1e1e3f]`}>
           {!isSettingsMode && (
             <>
               <div className="flex items-center gap-3 mb-2">
                 <Code className="w-6 h-6 text-purple-400" />
-                <h2 className="text-2xl font-bold text-white">API Configuration</h2>
+                <h2 className="text-2xl font-bold text-white">
+                  API Configuration
+                </h2>
               </div>
-              <p className="text-gray-400 text-sm mb-6">Configure your backend APIs for the AI shopping assistant</p>
+              <p className="text-gray-400 text-sm mb-6">
+                Configure your backend APIs for the AI shopping assistant
+              </p>
             </>
           )}
 
           {/* API Tabs */}
           <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
             {API_CONFIGS.map((api, index) => {
-              const Icon = api.icon
+              const Icon = api.icon;
               return (
                 <button
                   key={api.key}
@@ -595,9 +717,9 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors duration-300 ease-out border focus:outline-none focus:ring-0 active:outline-none ${
                     currentApiIndex === index
                       ? api.isDefault 
-                        ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white border-blue-500'
-                        : 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-emerald-500'
-                      : 'bg-[#2a2a4a] text-gray-400 hover:text-white border-gray-700 hover:border-purple-500/50'
+                        ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white border-blue-500"
+                        : "bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-emerald-500"
+                      : "bg-[#2a2a4a] text-gray-400 hover:text-white border-gray-700 hover:border-purple-500/50"
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -606,16 +728,16 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
                     <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
                   )}
                 </button>
-              )
+              );
             })}
             
             {/* Add Custom API Button */}
             <button
               onClick={() => {
-                setEditingCustomApi(null)
-                setNewCustomApiName('')
-                setNewCustomApiDescription('')
-                setShowAddCustomModal(true)
+                setEditingCustomApi(null);
+                setNewCustomApiName("");
+                setNewCustomApiDescription("");
+                setShowAddCustomModal(true);
               }}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors duration-300 ease-out focus:outline-none focus:ring-0 active:outline-none bg-[#2a2a4a] text-emerald-400 hover:text-emerald-300 border border-dashed border-emerald-500/50 hover:border-emerald-400"
             >
@@ -625,15 +747,19 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
           </div>
 
           {/* Current API Form - Conditional for 2FA or Regular */}
-          {currentApi?.key === '2fa' ? (
+          {currentApi?.key === "2fa" ? (
             /* 2FA Form - Shows Both Send OTP and Verify OTP */
             <div className="space-y-4">
               {/* 2FA Header */}
               <div className="flex items-center gap-3 p-4 bg-[#2a2a4a] rounded-xl border border-purple-500/30">
                 <Shield className="w-6 h-6 text-purple-400" />
                 <div>
-                  <h3 className="text-white font-semibold">Two-Factor Authentication</h3>
-                  <p className="text-gray-500 text-xs">Configure Send OTP and Verify OTP APIs on the same page</p>
+                  <h3 className="text-white font-semibold">
+                    Two-Factor Authentication
+                  </h3>
+                  <p className="text-gray-500 text-xs">
+                    Configure Send OTP and Verify OTP APIs on the same page
+                  </p>
                 </div>
               </div>
               
@@ -647,13 +773,17 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
                         <Send className="w-4 h-4 text-blue-400" />
                       </div>
                       <div>
-                        <h3 className="text-white font-semibold text-sm">Send OTP</h3>
-                        <p className="text-gray-500 text-xs">API to send OTP to user</p>
+                        <h3 className="text-white font-semibold text-sm">
+                          Send OTP
+                        </h3>
+                        <p className="text-gray-500 text-xs">
+                          API to send OTP to user
+                        </p>
                       </div>
                     </div>
                     <button
                       type="button"
-                      onClick={() => openCurlModal('send_otp')}
+                      onClick={() => openCurlModal("send_otp")}
                       className="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs"
                     >
                       <Terminal className="w-3 h-3" />
@@ -664,30 +794,62 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
                   {/* URL & Method */}
                   <div className="flex gap-2">
                     <div className="flex-shrink-0">
-                      <label className="block text-gray-400 text-xs mb-1">Method</label>
-                      <div className={`relative h-[34px] rounded-lg ${METHOD_COLORS[twoFactorConfigs.send_otp.method]}`}>
+                      <label className="block text-gray-400 text-xs mb-1">
+                        Method
+                      </label>
+                      <div
+                        className={`relative h-[34px] rounded-lg ${
+                          METHOD_COLORS[twoFactorConfigs.send_otp.method]
+                        }`}
+                      >
                         <select
                           value={twoFactorConfigs.send_otp.method}
-                          onChange={(e) => update2FAConfig('send_otp', 'method', e.target.value)}
+                          onChange={(e) =>
+                            update2FAConfig(
+                              "send_otp",
+                              "method",
+                              e.target.value
+                            )
+                          }
                           className="h-full pl-3 pr-7 bg-transparent text-white font-semibold text-xs focus:outline-none cursor-pointer appearance-none"
                         >
-                          {METHODS.map(method => (
-                            <option key={method} value={method} className="bg-[#1e1e3f] text-white">{method}</option>
+                          {METHODS.map((method) => (
+                            <option
+                              key={method}
+                              value={method}
+                              className="bg-[#1e1e3f] text-white"
+                            >
+                              {method}
+                            </option>
                           ))}
                         </select>
                         <div className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none">
-                          <svg className="w-3 h-3 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          <svg
+                            className="w-3 h-3 text-white/70"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 9l-7 7-7-7"
+                            />
                           </svg>
                         </div>
                       </div>
                     </div>
                     <div className="flex-1">
-                      <label className="block text-gray-400 text-xs mb-1">URL</label>
+                      <label className="block text-gray-400 text-xs mb-1">
+                        URL
+                      </label>
                       <input
                         type="text"
                         value={twoFactorConfigs.send_otp.url}
-                        onChange={(e) => update2FAConfig('send_otp', 'url', e.target.value)}
+                        onChange={(e) =>
+                          update2FAConfig("send_otp", "url", e.target.value)
+                        }
                         placeholder="https://api.example.com/otp/send"
                         className="w-full h-[34px] px-3 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-xs input-glow"
                       />
@@ -698,65 +860,96 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="text-gray-400 text-xs">Headers</label>
-                      <button type="button" onClick={() => add2FAHeader('send_otp')} className="text-xs text-purple-400 hover:text-purple-300">
+                      <button
+                        type="button"
+                        onClick={() => add2FAHeader("send_otp")}
+                        className="text-xs text-purple-400 hover:text-purple-300"
+                      >
                         + Add
                       </button>
                     </div>
                     <div className="space-y-1">
-                      {twoFactorConfigs.send_otp.headers.map((header, index) => (
+                      {twoFactorConfigs.send_otp.headers.map(
+                        (header, index) => (
                         <div key={index} className="flex gap-1">
                           <input
                             type="text"
                             value={header.key}
-                            onChange={(e) => update2FAHeader('send_otp', index, 'key', e.target.value)}
+                              onChange={(e) =>
+                                update2FAHeader(
+                                  "send_otp",
+                                  index,
+                                  "key",
+                                  e.target.value
+                                )
+                              }
                             placeholder="Key"
                             className="flex-1 px-2 py-1.5 bg-[#1e1e3f] border border-gray-700 rounded text-white placeholder-gray-500 text-xs"
                           />
                           <input
                             type="text"
                             value={header.value}
-                            onChange={(e) => update2FAHeader('send_otp', index, 'value', e.target.value)}
+                              onChange={(e) =>
+                                update2FAHeader(
+                                  "send_otp",
+                                  index,
+                                  "value",
+                                  e.target.value
+                                )
+                              }
                             placeholder="Value"
                             className="flex-1 px-2 py-1.5 bg-[#1e1e3f] border border-gray-700 rounded text-white placeholder-gray-500 text-xs"
                           />
-                          <button type="button" onClick={() => remove2FAHeader('send_otp', index)} className="p-1 text-gray-500 hover:text-red-400">
+                            <button
+                              type="button"
+                              onClick={() => remove2FAHeader("send_otp", index)}
+                              className="p-1 text-gray-500 hover:text-red-400"
+                            >
                             <X className="w-3 h-3" />
                           </button>
                         </div>
-                      ))}
+                        )
+                      )}
                     </div>
                   </div>
                   
                   {/* Body */}
-                  {(twoFactorConfigs.send_otp.method === 'POST' || twoFactorConfigs.send_otp.method === 'PUT') && (
+                  {(twoFactorConfigs.send_otp.method === "POST" ||
+                    twoFactorConfigs.send_otp.method === "PUT") && (
                     <div>
-                      <label className="block text-gray-400 text-xs mb-1">Request Body</label>
+                      <label className="block text-gray-400 text-xs mb-1">
+                        Request Body
+                      </label>
                       <textarea
                         value={twoFactorConfigs.send_otp.body}
-                        onChange={(e) => update2FAConfig('send_otp', 'body', e.target.value)}
+                        onChange={(e) =>
+                          update2FAConfig("send_otp", "body", e.target.value)
+                        }
                         placeholder='{"phone": "{{phone_number}}"}'
                         rows={3}
                         className="w-full px-2 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 text-xs font-mono resize-none"
                       />
                     </div>
                   )}
-                  
+
                   {/* MCP Tool Configuration for Send OTP */}
                   <MCPToolConfigForm
                     apiConfig={{
                       ...twoFactorConfigs.send_otp,
-                      apiType: 'send_otp',
+                      apiType: "send_otp",
                       body: (() => {
                         try {
-                          return twoFactorConfigs.send_otp.body ? JSON.parse(twoFactorConfigs.send_otp.body) : null;
+                          return twoFactorConfigs.send_otp.body
+                            ? JSON.parse(twoFactorConfigs.send_otp.body)
+                            : null;
                         } catch (e) {
                           return null;
                         }
                       })(),
-                      params: twoFactorConfigs.send_otp.params
+                      params: twoFactorConfigs.send_otp.params,
                     }}
                     onChange={(mcpConfig) => {
-                      update2FAConfig('send_otp', 'mcpConfig', mcpConfig);
+                      update2FAConfig("send_otp", "mcpConfig", mcpConfig);
                     }}
                     defaultToolName="send_otp"
                     defaultDescription="Send OTP to user phone number or email for authentication"
@@ -772,13 +965,17 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
                         <CheckCircle className="w-4 h-4 text-green-400" />
                       </div>
                       <div>
-                        <h3 className="text-white font-semibold text-sm">Verify OTP</h3>
-                        <p className="text-gray-500 text-xs">API to verify OTP code</p>
+                        <h3 className="text-white font-semibold text-sm">
+                          Verify OTP
+                        </h3>
+                        <p className="text-gray-500 text-xs">
+                          API to verify OTP code
+                        </p>
                       </div>
                     </div>
                     <button
                       type="button"
-                      onClick={() => openCurlModal('verify_otp')}
+                      onClick={() => openCurlModal("verify_otp")}
                       className="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs"
                     >
                       <Terminal className="w-3 h-3" />
@@ -789,30 +986,62 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
                   {/* URL & Method */}
                   <div className="flex gap-2">
                     <div className="flex-shrink-0">
-                      <label className="block text-gray-400 text-xs mb-1">Method</label>
-                      <div className={`relative h-[34px] rounded-lg ${METHOD_COLORS[twoFactorConfigs.verify_otp.method]}`}>
+                      <label className="block text-gray-400 text-xs mb-1">
+                        Method
+                      </label>
+                      <div
+                        className={`relative h-[34px] rounded-lg ${
+                          METHOD_COLORS[twoFactorConfigs.verify_otp.method]
+                        }`}
+                      >
                         <select
                           value={twoFactorConfigs.verify_otp.method}
-                          onChange={(e) => update2FAConfig('verify_otp', 'method', e.target.value)}
+                          onChange={(e) =>
+                            update2FAConfig(
+                              "verify_otp",
+                              "method",
+                              e.target.value
+                            )
+                          }
                           className="h-full pl-3 pr-7 bg-transparent text-white font-semibold text-xs focus:outline-none cursor-pointer appearance-none"
                         >
-                          {METHODS.map(method => (
-                            <option key={method} value={method} className="bg-[#1e1e3f] text-white">{method}</option>
+                          {METHODS.map((method) => (
+                            <option
+                              key={method}
+                              value={method}
+                              className="bg-[#1e1e3f] text-white"
+                            >
+                              {method}
+                            </option>
                           ))}
                         </select>
                         <div className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none">
-                          <svg className="w-3 h-3 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          <svg
+                            className="w-3 h-3 text-white/70"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 9l-7 7-7-7"
+                            />
                           </svg>
                         </div>
                       </div>
                     </div>
                     <div className="flex-1">
-                      <label className="block text-gray-400 text-xs mb-1">URL</label>
+                      <label className="block text-gray-400 text-xs mb-1">
+                        URL
+                      </label>
                       <input
                         type="text"
                         value={twoFactorConfigs.verify_otp.url}
-                        onChange={(e) => update2FAConfig('verify_otp', 'url', e.target.value)}
+                        onChange={(e) =>
+                          update2FAConfig("verify_otp", "url", e.target.value)
+                        }
                         placeholder="https://api.example.com/otp/verify"
                         className="w-full h-[34px] px-3 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-xs input-glow"
                       />
@@ -823,65 +1052,98 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="text-gray-400 text-xs">Headers</label>
-                      <button type="button" onClick={() => add2FAHeader('verify_otp')} className="text-xs text-purple-400 hover:text-purple-300">
+                      <button
+                        type="button"
+                        onClick={() => add2FAHeader("verify_otp")}
+                        className="text-xs text-purple-400 hover:text-purple-300"
+                      >
                         + Add
                       </button>
                     </div>
                     <div className="space-y-1">
-                      {twoFactorConfigs.verify_otp.headers.map((header, index) => (
+                      {twoFactorConfigs.verify_otp.headers.map(
+                        (header, index) => (
                         <div key={index} className="flex gap-1">
                           <input
                             type="text"
                             value={header.key}
-                            onChange={(e) => update2FAHeader('verify_otp', index, 'key', e.target.value)}
+                              onChange={(e) =>
+                                update2FAHeader(
+                                  "verify_otp",
+                                  index,
+                                  "key",
+                                  e.target.value
+                                )
+                              }
                             placeholder="Key"
                             className="flex-1 px-2 py-1.5 bg-[#1e1e3f] border border-gray-700 rounded text-white placeholder-gray-500 text-xs"
                           />
                           <input
                             type="text"
                             value={header.value}
-                            onChange={(e) => update2FAHeader('verify_otp', index, 'value', e.target.value)}
+                              onChange={(e) =>
+                                update2FAHeader(
+                                  "verify_otp",
+                                  index,
+                                  "value",
+                                  e.target.value
+                                )
+                              }
                             placeholder="Value"
                             className="flex-1 px-2 py-1.5 bg-[#1e1e3f] border border-gray-700 rounded text-white placeholder-gray-500 text-xs"
                           />
-                          <button type="button" onClick={() => remove2FAHeader('verify_otp', index)} className="p-1 text-gray-500 hover:text-red-400">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                remove2FAHeader("verify_otp", index)
+                              }
+                              className="p-1 text-gray-500 hover:text-red-400"
+                            >
                             <X className="w-3 h-3" />
                           </button>
                         </div>
-                      ))}
+                        )
+                      )}
                     </div>
                   </div>
                   
                   {/* Body */}
-                  {(twoFactorConfigs.verify_otp.method === 'POST' || twoFactorConfigs.verify_otp.method === 'PUT') && (
+                  {(twoFactorConfigs.verify_otp.method === "POST" ||
+                    twoFactorConfigs.verify_otp.method === "PUT") && (
                     <div>
-                      <label className="block text-gray-400 text-xs mb-1">Request Body</label>
+                      <label className="block text-gray-400 text-xs mb-1">
+                        Request Body
+                      </label>
                       <textarea
                         value={twoFactorConfigs.verify_otp.body}
-                        onChange={(e) => update2FAConfig('verify_otp', 'body', e.target.value)}
+                        onChange={(e) =>
+                          update2FAConfig("verify_otp", "body", e.target.value)
+                        }
                         placeholder='{"phone": "{{phone_number}}", "otp": "{{otp_code}}"}'
                         rows={3}
                         className="w-full px-2 py-2 bg-[#1e1e3f] border border-gray-700 rounded-lg text-white placeholder-gray-500 text-xs font-mono resize-none"
                       />
                     </div>
                   )}
-                  
+
                   {/* MCP Tool Configuration for Verify OTP */}
                   <MCPToolConfigForm
                     apiConfig={{
                       ...twoFactorConfigs.verify_otp,
-                      apiType: 'verify_otp',
+                      apiType: "verify_otp",
                       body: (() => {
                         try {
-                          return twoFactorConfigs.verify_otp.body ? JSON.parse(twoFactorConfigs.verify_otp.body) : null;
+                          return twoFactorConfigs.verify_otp.body
+                            ? JSON.parse(twoFactorConfigs.verify_otp.body)
+                            : null;
                         } catch (e) {
                           return null;
                         }
                       })(),
-                      params: twoFactorConfigs.verify_otp.params
+                      params: twoFactorConfigs.verify_otp.params,
                     }}
                     onChange={(mcpConfig) => {
-                      update2FAConfig('verify_otp', 'mcpConfig', mcpConfig);
+                      update2FAConfig("verify_otp", "mcpConfig", mcpConfig);
                     }}
                     defaultToolName="verify_otp"
                     defaultDescription="Verify OTP code entered by user for authentication"
@@ -895,12 +1157,22 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
                 <div className="flex items-start gap-2">
                   <Shield className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-gray-300 text-xs font-medium mb-1">Available Variables</p>
+                    <p className="text-gray-300 text-xs font-medium mb-1">
+                      Available Variables
+                    </p>
                     <div className="flex flex-wrap gap-2 text-xs">
-                      <code className="px-2 py-0.5 bg-[#1e1e3f] text-purple-300 rounded">{'{{phone_number}}'}</code>
-                      <code className="px-2 py-0.5 bg-[#1e1e3f] text-purple-300 rounded">{'{{email}}'}</code>
-                      <code className="px-2 py-0.5 bg-[#1e1e3f] text-purple-300 rounded">{'{{otp_code}}'}</code>
-                      <code className="px-2 py-0.5 bg-[#1e1e3f] text-purple-300 rounded">{'{{user_id}}'}</code>
+                      <code className="px-2 py-0.5 bg-[#1e1e3f] text-purple-300 rounded">
+                        {"{{phone_number}}"}
+                      </code>
+                      <code className="px-2 py-0.5 bg-[#1e1e3f] text-purple-300 rounded">
+                        {"{{email}}"}
+                      </code>
+                      <code className="px-2 py-0.5 bg-[#1e1e3f] text-purple-300 rounded">
+                        {"{{otp_code}}"}
+                      </code>
+                      <code className="px-2 py-0.5 bg-[#1e1e3f] text-purple-300 rounded">
+                        {"{{user_id}}"}
+                      </code>
                     </div>
                   </div>
                 </div>
@@ -912,17 +1184,27 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
               {/* API Header */}
               <div className="flex items-center justify-between pb-4 border-b border-gray-700">
                 <div className="flex items-center gap-3">
-                  {React.createElement(currentApi.icon, { className: `w-6 h-6 ${currentApi.isDefault ? 'text-purple-400' : 'text-emerald-400'}` })}
+                  {React.createElement(currentApi.icon, {
+                    className: `w-6 h-6 ${
+                      currentApi.isDefault
+                        ? "text-purple-400"
+                        : "text-emerald-400"
+                    }`,
+                  })}
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="text-white font-semibold">{currentApi.label}</h3>
+                      <h3 className="text-white font-semibold">
+                        {currentApi.label}
+                      </h3>
                       {!currentApi.isDefault && (
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                           Custom
                         </span>
                       )}
                     </div>
-                    <p className="text-gray-500 text-xs">{currentApi.description}</p>
+                    <p className="text-gray-500 text-xs">
+                      {currentApi.description}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -954,7 +1236,9 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
                     className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 text-emerald-400 hover:from-emerald-500/30 hover:to-teal-500/30 hover:border-emerald-400 transition-all group"
                   >
                     <Terminal className="w-4 h-4" />
-                    <span className="text-sm font-medium">Import from cURL</span>
+                    <span className="text-sm font-medium">
+                      Import from cURL
+                    </span>
                     <Sparkles className="w-3 h-3 opacity-60 group-hover:opacity-100" />
                   </button>
                 </div>
@@ -963,30 +1247,54 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
               {/* URL & Method */}
               <div className="flex gap-3">
                 <div className="flex-shrink-0">
-                  <label className="block text-gray-400 text-xs mb-2">Method</label>
-                  <div className={`relative h-[42px] rounded-lg ${METHOD_COLORS[currentConfig.method]}`}>
+                  <label className="block text-gray-400 text-xs mb-2">
+                    Method
+                  </label>
+                  <div
+                    className={`relative h-[42px] rounded-lg ${
+                      METHOD_COLORS[currentConfig.method]
+                    }`}
+                  >
                     <select
                       value={currentConfig.method}
-                      onChange={(e) => updateConfig('method', e.target.value)}
+                      onChange={(e) => updateConfig("method", e.target.value)}
                       className="h-full pl-4 pr-8 bg-transparent text-white font-semibold text-sm focus:outline-none cursor-pointer appearance-none"
                     >
-                      {METHODS.map(method => (
-                        <option key={method} value={method} className="bg-[#1e1e3f] text-white">{method}</option>
+                      {METHODS.map((method) => (
+                        <option
+                          key={method}
+                          value={method}
+                          className="bg-[#1e1e3f] text-white"
+                        >
+                          {method}
+                        </option>
                       ))}
                     </select>
                     <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      <svg
+                        className="w-4 h-4 text-white/70"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
                       </svg>
                     </div>
                   </div>
                 </div>
                 <div className="flex-1">
-                  <label className="block text-gray-400 text-xs mb-2">URL</label>
+                  <label className="block text-gray-400 text-xs mb-2">
+                    URL
+                  </label>
                   <input
                     type="text"
                     value={currentConfig.url}
-                    onChange={(e) => updateConfig('url', e.target.value)}
+                    onChange={(e) => updateConfig("url", e.target.value)}
                     placeholder="https://api.example.com/endpoint"
                     className="w-full h-[42px] px-4 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-sm input-glow"
                   />
@@ -1011,14 +1319,18 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
                       <input
                         type="text"
                         value={header.key}
-                        onChange={(e) => updateHeader(index, 'key', e.target.value)}
+                        onChange={(e) =>
+                          updateHeader(index, "key", e.target.value)
+                        }
                         placeholder="Key (e.g., Authorization)"
                         className="flex-1 px-3 py-2 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-sm input-glow"
                       />
                       <input
                         type="text"
                         value={header.value}
-                        onChange={(e) => updateHeader(index, 'value', e.target.value)}
+                        onChange={(e) =>
+                          updateHeader(index, "value", e.target.value)
+                        }
                         placeholder="Value (e.g., Bearer token)"
                         className="flex-1 px-3 py-2 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-sm input-glow"
                       />
@@ -1038,7 +1350,9 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
               {/* Params */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-gray-400 text-xs">Query Parameters</label>
+                  <label className="text-gray-400 text-xs">
+                    Query Parameters
+                  </label>
                   <button
                     type="button"
                     onClick={addParam}
@@ -1053,14 +1367,18 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
                       <input
                         type="text"
                         value={param.key}
-                        onChange={(e) => updateParam(index, 'key', e.target.value)}
+                        onChange={(e) =>
+                          updateParam(index, "key", e.target.value)
+                        }
                         placeholder="Key (e.g., search)"
                         className="flex-1 px-3 py-2 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-sm input-glow"
                       />
                       <input
                         type="text"
                         value={param.value}
-                        onChange={(e) => updateParam(index, 'value', e.target.value)}
+                        onChange={(e) =>
+                          updateParam(index, "value", e.target.value)
+                        }
                         placeholder="Value (e.g., {{query}})"
                         className="flex-1 px-3 py-2 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-sm input-glow"
                       />
@@ -1078,12 +1396,16 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
               </div>
 
               {/* Body */}
-              {(currentConfig.method === 'POST' || currentConfig.method === 'PUT' || currentConfig.method === 'PATCH') && (
+              {(currentConfig.method === "POST" ||
+                currentConfig.method === "PUT" ||
+                currentConfig.method === "PATCH") && (
                 <div>
-                  <label className="block text-gray-400 text-xs mb-2">Request Body (JSON)</label>
+                  <label className="block text-gray-400 text-xs mb-2">
+                    Request Body (JSON)
+                  </label>
                   <textarea
                     value={currentConfig.body}
-                    onChange={(e) => updateConfig('body', e.target.value)}
+                    onChange={(e) => updateConfig("body", e.target.value)}
                     placeholder='{"key": "value"}'
                     rows={5}
                     className="w-full px-3 py-2 bg-[#1e1e3f] border rounded-lg text-white placeholder-gray-500 focus:outline-none text-sm font-mono resize-none input-glow"
@@ -1098,15 +1420,17 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
                   apiType: currentApi.key,
                   body: (() => {
                     try {
-                      return currentConfig.body ? JSON.parse(currentConfig.body) : null;
+                      return currentConfig.body
+                        ? JSON.parse(currentConfig.body)
+                        : null;
                     } catch (e) {
                       return null;
                     }
                   })(),
-                  params: currentConfig.params
+                  params: currentConfig.params,
                 }}
                 onChange={(mcpConfig) => {
-                  updateConfig('mcpConfig', mcpConfig);
+                  updateConfig("mcpConfig", mcpConfig);
                 }}
               />
             </div>
@@ -1198,14 +1522,16 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
                 </div>
                 <div>
                   <h3 className="text-white font-semibold">Import from cURL</h3>
-                  <p className="text-gray-400 text-xs">Paste your cURL command to auto-fill API configuration</p>
+                  <p className="text-gray-400 text-xs">
+                    Paste your cURL command to auto-fill API configuration
+                  </p>
                 </div>
               </div>
               <button
                 onClick={() => {
-                  setShowCurlModal(false)
-                  setCurlInput('')
-                  setParseError('')
+                  setShowCurlModal(false);
+                  setCurlInput("");
+                  setParseError("");
                 }}
                 className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
               >
@@ -1216,7 +1542,9 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
             {/* Modal Body */}
             <div className="p-6 space-y-4">
               <div className="flex items-center justify-between mb-2">
-                <label className="text-gray-300 text-sm font-medium">cURL Command</label>
+                <label className="text-gray-300 text-sm font-medium">
+                  cURL Command
+                </label>
                 <button
                   onClick={handlePasteFromClipboard}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1e1e3f] border border-gray-700 text-gray-400 hover:text-white hover:border-emerald-500/50 transition-all text-xs"
@@ -1229,8 +1557,8 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
               <textarea
                 value={curlInput}
                 onChange={(e) => {
-                  setCurlInput(e.target.value)
-                  setParseError('')
+                  setCurlInput(e.target.value);
+                  setParseError("");
                 }}
                 placeholder={`curl -X POST 'https://api.example.com/endpoint' \\
   -H 'Content-Type: application/json' \\
@@ -1242,8 +1570,18 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
 
               {parseError && (
                 <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-                  <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    className="w-4 h-4 flex-shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                   {parseError}
                 </div>
@@ -1253,7 +1591,9 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
                 <div className="flex items-start gap-2 text-xs text-gray-400">
                   <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-gray-300 font-medium mb-1">Supported formats:</p>
+                    <p className="text-gray-300 font-medium mb-1">
+                      Supported formats:
+                    </p>
                     <ul className="space-y-0.5 text-gray-500">
                       <li>• HTTP methods: GET, POST, PUT, DELETE, PATCH</li>
                       <li>• Headers: -H or --header flags</li>
@@ -1269,9 +1609,9 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10 bg-[#1e1e3f]/30">
               <button
                 onClick={() => {
-                  setShowCurlModal(false)
-                  setCurlInput('')
-                  setParseError('')
+                  setShowCurlModal(false);
+                  setCurlInput("");
+                  setParseError("");
                 }}
                 className="px-5 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors text-sm font-medium"
               >
@@ -1302,19 +1642,21 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
                 </div>
                 <div>
                   <h3 className="text-white font-semibold">
-                    {editingCustomApi ? 'Edit Custom API' : 'Add Custom API'}
+                    {editingCustomApi ? "Edit Custom API" : "Add Custom API"}
                   </h3>
                   <p className="text-gray-400 text-xs">
-                    {editingCustomApi ? 'Update your custom API details' : 'Create a new custom API endpoint'}
+                    {editingCustomApi
+                      ? "Update your custom API details"
+                      : "Create a new custom API endpoint"}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => {
-                  setShowAddCustomModal(false)
-                  setNewCustomApiName('')
-                  setNewCustomApiDescription('')
-                  setEditingCustomApi(null)
+                  setShowAddCustomModal(false);
+                  setNewCustomApiName("");
+                  setNewCustomApiDescription("");
+                  setEditingCustomApi(null);
                 }}
                 className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
               >
@@ -1354,7 +1696,8 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
                 <div className="flex items-start gap-2 text-xs text-gray-400">
                   <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
                   <p>
-                    Custom APIs allow you to extend your AI assistant with additional functionality specific to your business needs.
+                    Custom APIs allow you to extend your AI assistant with
+                    additional functionality specific to your business needs.
                   </p>
                 </div>
               </div>
@@ -1364,30 +1707,31 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, i
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10 bg-[#1e1e3f]/30">
               <button
                 onClick={() => {
-                  setShowAddCustomModal(false)
-                  setNewCustomApiName('')
-                  setNewCustomApiDescription('')
-                  setEditingCustomApi(null)
+                  setShowAddCustomModal(false);
+                  setNewCustomApiName("");
+                  setNewCustomApiDescription("");
+                  setEditingCustomApi(null);
                 }}
                 className="px-5 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors text-sm font-medium"
               >
                 Cancel
               </button>
               <button
-                onClick={editingCustomApi ? handleUpdateCustomApi : handleAddCustomApi}
+                onClick={
+                  editingCustomApi ? handleUpdateCustomApi : handleAddCustomApi
+                }
                 disabled={!newCustomApiName.trim()}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:shadow-lg hover:shadow-emerald-500/25 hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none text-sm"
               >
                 <Plus className="w-4 h-4" />
-                {editingCustomApi ? 'Update API' : 'Add API'}
+                {editingCustomApi ? "Update API" : "Add API"}
               </button>
             </div>
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }
 
-export default ApiConfiguration
-
+export default ApiConfiguration;

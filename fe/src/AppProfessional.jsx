@@ -20,8 +20,33 @@ function AppProfessional() {
     if (path === '/dashboard') return 'dashboard'
     if (path === '/settings') return 'settings'
     if (path === '/chat') return 'chat'
+    // New format: /chat/:merchantId/:sessionId or /chat/:merchantId
     if (path.startsWith('/chat/')) return 'public-chat'
     return 'homepage'
+  }
+  
+  // Parse chat URL params: /chat/:merchantId/:sessionId or /chat/:merchantSlug
+  const parseChatParams = () => {
+    const path = window.location.pathname
+    if (!path.startsWith('/chat/')) return null
+    
+    const parts = path.split('/chat/')[1].split('/')
+    
+    // Check if first part is numeric (merchantId) or string (slug)
+    if (parts[0] && !isNaN(parseInt(parts[0]))) {
+      // New format: /chat/:merchantId/:sessionId
+      return {
+        merchantId: parseInt(parts[0]),
+        sessionId: parts[1] ? parseInt(parts[1]) : null,
+        isNewFormat: true
+      }
+    } else {
+      // Old format: /chat/:slug (backward compatibility)
+      return {
+        merchantSlug: parts[0],
+        isNewFormat: false
+      }
+    }
   }
   
   const [selectedChat, setSelectedChat] = useState(null)
@@ -227,8 +252,17 @@ function AppProfessional() {
 
   // Show public chat (no auth required)
   if (currentRoute === 'public-chat') {
-    const merchantSlug = window.location.pathname.split('/chat/')[1];
-    return <PublicChat merchantSlug={merchantSlug} />
+    const chatParams = parseChatParams()
+    if (chatParams?.isNewFormat) {
+      // New format: /chat/:merchantId/:sessionId
+      return <PublicChat 
+        merchantId={chatParams.merchantId} 
+        sessionId={chatParams.sessionId}
+      />
+    } else {
+      // Old format: /chat/:slug (backward compatibility)
+      return <PublicChat merchantSlug={chatParams?.merchantSlug} />
+    }
   }
 
   // Check if user is logged in for protected routes
