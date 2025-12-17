@@ -131,6 +131,15 @@ class ApiService {
     return !!this.getToken();
   }
 
+  // Public merchant methods (no auth required)
+  async getPublicMerchants() {
+    return this.request('/api/merchant/public/list', { method: 'GET' });
+  }
+
+  async getPublicMerchant(slug) {
+    return this.request(`/api/merchant/public/${slug}`, { method: 'GET' });
+  }
+
   // Merchant API methods
   async getMerchant() {
     return this.request('/api/merchant', { method: 'GET' });

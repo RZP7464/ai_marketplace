@@ -201,9 +201,14 @@ function AppProfessional() {
     setCurrentRoute('auth')
   }
 
+  const handleMerchantClick = (merchantSlug) => {
+    window.history.pushState({}, '', `/chat/${merchantSlug}`)
+    setCurrentRoute('public-chat')
+  }
+
   // Show homepage
   if (currentRoute === 'homepage') {
-    return <Homepage onGetStarted={handleGetStarted} onLogin={handleGoToLogin} />
+    return <Homepage onGetStarted={handleGetStarted} onLogin={handleGoToLogin} onMerchantClick={handleMerchantClick} />
   }
 
   // Show public chat (no auth required)
@@ -492,7 +497,7 @@ function AppProfessional() {
   }
 
   // Default fallback to homepage
-  return <Homepage onGetStarted={handleGetStarted} onLogin={handleGoToLogin} />
+  return <Homepage onGetStarted={handleGetStarted} onLogin={handleGoToLogin} onMerchantClick={handleMerchantClick} />
 }
 
 export default AppProfessional

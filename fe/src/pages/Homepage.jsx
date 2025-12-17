@@ -14,20 +14,65 @@ import {
   Play,
   Shield,
   Globe,
-  Code
+  Code,
+  Loader2
 } from 'lucide-react'
+import apiService from '../services/api'
 
-const Homepage = ({ onGetStarted, onLogin }) => {
+const Homepage = ({ onGetStarted, onLogin, onMerchantClick }) => {
   const [activeFeature, setActiveFeature] = useState(0)
   const [isVisible, setIsVisible] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
+  const [scrollProgress, setScrollProgress] = useState(0)
+  const [merchants, setMerchants] = useState([])
+  const [loadingMerchants, setLoadingMerchants] = useState(true)
 
   useEffect(() => {
     setIsVisible(true)
     const interval = setInterval(() => {
       setActiveFeature(prev => (prev + 1) % 3)
     }, 4000)
-    return () => clearInterval(interval)
+
+    // Scroll listener for fixed nav and progress
+    const handleScroll = () => {
+      const scrollTop = window.scrollY
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight
+      const progress = (scrollTop / docHeight) * 100
+      
+      setScrolled(scrollTop > 100)
+      setScrollProgress(progress)
+    }
+
+    window.addEventListener('scroll', handleScroll)
+    
+    // Fetch merchants from API
+    fetchMerchants()
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('scroll', handleScroll)
+    }
   }, [])
+
+  const fetchMerchants = async () => {
+    try {
+      setLoadingMerchants(true)
+      const response = await apiService.getPublicMerchants()
+      if (response.success && response.data) {
+        setMerchants(response.data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch merchants:', error)
+      // Fallback to empty array on error
+      setMerchants([])
+    } finally {
+      setLoadingMerchants(false)
+    }
+  }
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   const features = [
     {
@@ -65,7 +110,7 @@ const Homepage = ({ onGetStarted, onLogin }) => {
   ]
 
   return (
-    <div className="min-h-screen bg-[#0a0a1a] text-white overflow-hidden">
+    <div className="h-screen bg-[#0a0a1a] text-white overflow-y-auto snap-y snap-mandatory scroll-smooth scrollbar-hide">
       {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-purple-500/20 rounded-full blur-[120px] animate-pulse"></div>
@@ -73,8 +118,20 @@ const Homepage = ({ onGetStarted, onLogin }) => {
         <div className="absolute top-1/2 left-1/2 w-[400px] h-[400px] bg-cyan-500/10 rounded-full blur-[80px] animate-pulse" style={{ animationDelay: '2s' }}></div>
       </div>
 
-      {/* Navigation */}
-      <nav className="relative z-10 px-6 py-4">
+      {/* Scroll Progress Bar */}
+      <div className="fixed top-0 left-0 right-0 z-50 h-1 bg-transparent">
+        <div 
+          className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-150"
+          style={{ width: `${scrollProgress}%` }}
+        />
+      </div>
+
+      {/* Fixed Navigation */}
+      <nav className={`fixed top-0 left-0 right-0 z-40 px-6 py-4 transition-all duration-300 ${
+        scrolled 
+          ? 'bg-[#0a0a1a]/90 backdrop-blur-xl border-b border-white/5 shadow-lg' 
+          : 'bg-transparent'
+      }`}>
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
@@ -86,9 +143,9 @@ const Homepage = ({ onGetStarted, onLogin }) => {
           </div>
           
           <div className="hidden md:flex items-center gap-8">
+            <a href="#stores" className="text-gray-400 hover:text-white transition-colors">Explore Stores</a>
             <a href="#features" className="text-gray-400 hover:text-white transition-colors">Features</a>
             <a href="#how-it-works" className="text-gray-400 hover:text-white transition-colors">How it Works</a>
-            <a href="#pricing" className="text-gray-400 hover:text-white transition-colors">Pricing</a>
           </div>
 
           <div className="flex items-center gap-4">
@@ -108,8 +165,21 @@ const Homepage = ({ onGetStarted, onLogin }) => {
         </div>
       </nav>
 
+
+      {/* Scroll to Top Button */}
+      <button
+        onClick={scrollToTop}
+        className={`fixed bottom-8 right-8 z-50 p-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full shadow-lg shadow-purple-500/25 transition-all duration-300 hover:scale-110 ${
+          scrolled ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'
+        }`}
+      >
+        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+        </svg>
+      </button>
+
       {/* Hero Section */}
-      <section className={`relative z-10 px-6 pt-16 pb-24 transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+      <section className={`relative z-10 px-6 pt-24 pb-24 min-h-screen snap-start snap-always flex items-center transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             {/* Left Content */}
@@ -251,8 +321,112 @@ const Homepage = ({ onGetStarted, onLogin }) => {
         </div>
       </section>
 
+      {/* Explore Stores - Onboarded Merchants */}
+      <section id="stores" className="relative z-10 px-6 py-24 min-h-screen snap-start snap-always flex items-center bg-gradient-to-b from-transparent via-blue-500/5 to-transparent">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full text-sm mb-6">
+              <Store className="w-4 h-4 text-emerald-400" />
+              <span className="text-gray-300">Live Stores</span>
+            </div>
+            <h2 className="text-4xl font-bold mb-4">
+              Explore
+              <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent"> AI-Powered Stores</span>
+            </h2>
+            <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+              Experience the future of shopping. Chat with AI assistants from our onboarded merchants.
+            </p>
+          </div>
+
+          {loadingMerchants ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
+              <span className="ml-3 text-gray-400">Loading stores...</span>
+            </div>
+          ) : merchants.length === 0 ? (
+            <div className="text-center py-16">
+              <Store className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+              <p className="text-gray-400">No stores available yet. Be the first to onboard!</p>
+              <button
+                onClick={onGetStarted}
+                className="mt-4 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl font-medium hover:shadow-lg transition-all"
+              >
+                Get Started
+              </button>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {merchants.map((merchant) => (
+                <div
+                  key={merchant.id}
+                  onClick={() => merchant.isLive && onMerchantClick && onMerchantClick(merchant.id)}
+                  className={`group relative bg-[#1a1a2e] border border-white/10 rounded-2xl p-6 transition-all duration-300 ${
+                    merchant.isLive 
+                      ? 'cursor-pointer hover:bg-[#1e1e3f] hover:border-purple-500/30 hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10' 
+                      : 'opacity-60 cursor-not-allowed'
+                  }`}
+                >
+                  {/* Live Badge */}
+                  {merchant.isLive && (
+                    <div className="absolute top-4 right-4 flex items-center gap-1 px-2 py-1 bg-emerald-500/20 border border-emerald-500/30 rounded-full">
+                      <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+                      <span className="text-xs text-emerald-400 font-medium">Live</span>
+                    </div>
+                  )}
+
+                  {/* Coming Soon Badge */}
+                  {!merchant.isLive && (
+                    <div className="absolute top-4 right-4 px-2 py-1 bg-gray-500/20 border border-gray-500/30 rounded-full">
+                      <span className="text-xs text-gray-400 font-medium">Coming Soon</span>
+                    </div>
+                  )}
+
+                  {/* Merchant Logo */}
+                  <div 
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mb-4 transition-transform group-hover:scale-110"
+                    style={{ backgroundColor: `${merchant.primaryColor}20` }}
+                  >
+                    {merchant.logo}
+                  </div>
+
+                  {/* Merchant Info */}
+                  <h3 className="text-lg font-semibold text-white mb-1">{merchant.name}</h3>
+                  <p className="text-sm text-gray-400 mb-3">{merchant.tagline}</p>
+                  
+                  {/* Category Tag */}
+                  <div className="inline-flex items-center gap-1 px-2 py-1 bg-white/5 border border-white/10 rounded-lg">
+                    <span className="text-xs text-gray-400">{merchant.category}</span>
+                  </div>
+
+                  {/* Chat CTA */}
+                  {merchant.isLive && (
+                    <div className="mt-4 pt-4 border-t border-white/5">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-400">Start Shopping</span>
+                        <div className="flex items-center gap-1 text-purple-400 group-hover:text-purple-300">
+                          <MessageSquare className="w-4 h-4" />
+                          <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* View All Button */}
+          <div className="text-center mt-12">
+            <button className="inline-flex items-center gap-2 px-6 py-3 bg-white/5 border border-white/10 rounded-xl text-gray-300 hover:bg-white/10 hover:text-white transition-all duration-300">
+              View All Stores
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* Stats Section */}
-      <section className="relative z-10 px-6 py-16 border-y border-white/5">
+      <section className="relative z-10 px-6 py-16 min-h-[50vh] snap-start flex items-center border-y border-white/5">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {stats.map((stat, index) => (
@@ -268,7 +442,7 @@ const Homepage = ({ onGetStarted, onLogin }) => {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="relative z-10 px-6 py-24">
+      <section id="features" className="relative z-10 px-6 py-24 min-h-screen snap-start snap-always flex items-center">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold mb-4">
@@ -307,7 +481,7 @@ const Homepage = ({ onGetStarted, onLogin }) => {
       </section>
 
       {/* How It Works */}
-      <section id="how-it-works" className="relative z-10 px-6 py-24 bg-gradient-to-b from-transparent via-purple-500/5 to-transparent">
+      <section id="how-it-works" className="relative z-10 px-6 py-24 min-h-screen snap-start snap-always flex items-center bg-gradient-to-b from-transparent via-purple-500/5 to-transparent">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold mb-4">
@@ -346,7 +520,7 @@ const Homepage = ({ onGetStarted, onLogin }) => {
       </section>
 
       {/* Integration Partners */}
-      <section className="relative z-10 px-6 py-24">
+      <section className="relative z-10 px-6 py-24 min-h-[50vh] snap-start flex items-center">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
             <p className="text-gray-400 text-lg">Trusted by leading brands</p>
@@ -369,7 +543,7 @@ const Homepage = ({ onGetStarted, onLogin }) => {
       </section>
 
       {/* CTA Section */}
-      <section className="relative z-10 px-6 py-24">
+      <section className="relative z-10 px-6 py-24 min-h-screen snap-start snap-always flex items-center">
         <div className="max-w-4xl mx-auto">
           <div className="relative">
             <div className="absolute -inset-4 bg-gradient-to-r from-blue-500/30 via-purple-500/30 to-pink-500/30 rounded-3xl blur-xl"></div>
@@ -411,7 +585,7 @@ const Homepage = ({ onGetStarted, onLogin }) => {
       </section>
 
       {/* Footer */}
-      <footer className="relative z-10 px-6 py-12 border-t border-white/5">
+      <footer className="relative z-10 px-6 py-12 snap-start border-t border-white/5">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">

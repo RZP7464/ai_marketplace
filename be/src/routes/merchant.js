@@ -4,6 +4,61 @@ const { authenticateToken } = require("../middleware/auth");
 
 const router = express.Router();
 
+// GET /api/merchant/public/list - Get all public merchants for homepage (no auth required)
+router.get("/public/list", async (req, res) => {
+  try {
+    const merchants = await prisma.merchant.findMany({
+      where: {
+        displayName: { not: null }
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        displayName: true,
+        logo: true,
+        tagline: true,
+        type: true,
+        categories: true,
+        dynamicSettings: {
+          select: {
+            primaryColor: true,
+            secondaryColor: true,
+            accentColor: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    // Transform data for frontend
+    const transformedMerchants = merchants.map(merchant => ({
+      id: merchant.slug,
+      name: merchant.displayName || merchant.name,
+      tagline: merchant.tagline || 'Welcome to our store',
+      logo: merchant.logo || '🛍️',
+      primaryColor: merchant.dynamicSettings?.primaryColor || '#8B5CF6',
+      category: Array.isArray(merchant.categories) && merchant.categories.length > 0 
+        ? merchant.categories[0] 
+        : merchant.type || 'General',
+      isLive: true
+    }));
+
+    res.json({
+      success: true,
+      data: transformedMerchants
+    });
+  } catch (error) {
+    console.error("Get public merchants list error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Internal server error"
+    });
+  }
+});
+
 // GET /api/merchant/public/:slug - Get merchant public data (no auth required)
 router.get("/public/:slug", async (req, res) => {
   try {
