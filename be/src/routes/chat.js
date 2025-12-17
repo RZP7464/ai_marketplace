@@ -93,27 +93,42 @@ router.post('/public/:merchantSlug', async (req, res) => {
     let allToolResults = [];
     
     if (aiResponse.functionResults?.length > 0) {
-      // Include all successful tool results and normalize them
+      // Include all successful tool results and normalize them using AI
       const successfulResults = aiResponse.functionResults.filter(fr => fr.success);
       
-      // Normalize each result to make it UI-friendly
+      // Normalize each result using AI to understand and format any API response
       allToolResults = await Promise.all(
-        successfulResults.map(async (result) => {
+        successfulResults.map(async (result, idx) => {
           try {
-            // Normalize complex API responses
-            const normalized = await responseNormalizerService.normalizeToolResult(result);
-            return normalized;
+            const toolName = aiResponse.functionCalls?.[idx]?.name || 'unknown';
+            // Use AI-powered normalization to understand any response format
+            const normalized = await responseNormalizerService.normalizeToolResult(
+              toolName,
+              result,
+              { merchantId: merchant.id, merchantName: merchant.name }
+            );
+            return {
+              toolName,
+              success: true,
+              ...normalized
+            };
           } catch (error) {
             console.error('Error normalizing result:', error);
-            return result; // Return original if normalization fails
+            return {
+              toolName: aiResponse.functionCalls?.[idx]?.name || 'unknown',
+              success: result.success,
+              products: [],
+              summary: 'Error processing results',
+              raw: result.data
+            };
           }
         })
       );
       
       // For backward compatibility, keep the first successful result as toolResult
-      const firstSuccess = allToolResults.find(fr => fr.success && fr.data);
+      const firstSuccess = allToolResults.find(tr => tr.products?.length > 0);
       if (firstSuccess) {
-        toolResult = firstSuccess.data;
+        toolResult = firstSuccess.products;
       }
     }
 

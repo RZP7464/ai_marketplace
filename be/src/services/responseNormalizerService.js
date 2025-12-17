@@ -1,316 +1,668 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const prisma = require("../lib/prisma");
 
 /**
- * Response Normalizer Service
- * 
- * Uses AI to normalize complex API responses into clean, UI-friendly formats
- * Handles:
- * - Complex nested objects
- * - Inconsistent price formats
- * - Messy product structures
- * - Image URL extraction
- * - Data flattening
+ * AI-Powered Response Normalizer Service
+ *
+ * Uses the merchant's configured AI (from aiConfigurations table) to understand
+ * ANY API response format and normalize it into a consistent structure.
  */
 class ResponseNormalizerService {
   constructor() {
-    const apiKey = process.env.GEMINI_API_KEY;
-    this.genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+    // Cache AI clients per merchant to avoid recreating
+    this.aiClients = new Map();
   }
 
   /**
-   * Normalize product data to standard format
+   * Get AI model for a merchant from their configuration
    */
-  normalizeProduct(product) {
-    if (!product || typeof product !== 'object') return null;
+  async getModelForMerchant(merchantId) {
+    // Check cache first
+    if (this.aiClients.has(merchantId)) {
+      return this.aiClients.get(merchantId);
+    }
 
-    const normalized = {
-      id: product.id || product._id || product.product_id,
-      name: this.extractName(product),
-      price: this.extractPrice(product),
-      image: this.extractImage(product),
-      url: this.extractUrl(product),
-      description: this.extractDescription(product)
-    };
-
-    // Remove null/undefined values
-    Object.keys(normalized).forEach(key => {
-      if (normalized[key] === null || normalized[key] === undefined) {
-        delete normalized[key];
-      }
+    // Fetch merchant's AI configuration from database
+    const aiConfig = await prisma.aiConfiguration.findFirst({
+      where: {
+        merchantId: parseInt(merchantId),
+        isActive: true,
+      },
     });
 
-    return normalized;
-  }
-
-  /**
-   * Extract name from various possible fields
-   */
-  extractName(product) {
-    const fields = ['name', 'title', 'product_name', 'productName', 'display_name', 'displayName'];
-    for (const field of fields) {
-      if (product[field]) {
-        return typeof product[field] === 'object' ? JSON.stringify(product[field]) : String(product[field]);
+    if (!aiConfig) {
+      // Fallback to environment variables if no config
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        console.warn(
+          `No AI config for merchant ${merchantId} and no GEMINI_API_KEY set`
+        );
+        return null;
       }
+
+      console.log(`Using default Gemini config for merchant ${merchantId}`);
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({
+        model: process.env.GEMINI_MODEL || "gemini-2.5-pro",
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 4096,
+        },
+      });
+
+      this.aiClients.set(merchantId, model);
+      return model;
     }
+
+    // Use merchant's configured AI
+    console.log(
+      `Using merchant ${merchantId} AI config: ${aiConfig.provider}/${aiConfig.model}`
+    );
+
+    if (aiConfig.provider === "gemini") {
+      const genAI = new GoogleGenerativeAI(aiConfig.apiKey);
+      const model = genAI.getGenerativeModel({
+        model: aiConfig.model,
+        generationConfig: {
+          temperature: aiConfig.config?.temperature || 0.1,
+          maxOutputTokens: aiConfig.config?.maxOutputTokens || 4096,
+        },
+      });
+
+      this.aiClients.set(merchantId, model);
+      return model;
+    }
+
+    // For non-Gemini providers, return null (will use basic normalization)
+    console.warn(
+      `AI normalization not supported for provider: ${aiConfig.provider}`
+    );
     return null;
   }
 
   /**
-   * Extract and normalize price from complex structures
+   * Clear cached AI client for a merchant (call when config changes)
    */
-  extractPrice(product) {
-    const priceFields = ['price', 'cost', 'amount', 'effective_price', 'final_price'];
-    
-    for (const field of priceFields) {
-      const value = product[field];
-      if (value !== undefined && value !== null) {
-        // Handle complex price objects: {effective: 599, marked: 799}
-        if (typeof value === 'object' && !Array.isArray(value)) {
-          const effective = value.effective || value.discounted || value.sale || value.final || value.price;
-          const original = value.marked || value.original || value.mrp;
-          
-          if (effective && original) {
-            return {
-              current: this.parsePrice(effective),
-              original: this.parsePrice(original),
-              discount: this.calculateDiscount(effective, original)
-            };
-          }
-          
-          if (effective) return this.parsePrice(effective);
-          if (original) return this.parsePrice(original);
-          
-          // Try to find any numeric value
-          const numericValue = Object.values(value).find(v => typeof v === 'number' || !isNaN(parseFloat(v)));
-          if (numericValue) return this.parsePrice(numericValue);
-        }
-        
-        // Handle string/number prices
-        return this.parsePrice(value);
-      }
-    }
-    
-    return null;
+  clearCache(merchantId) {
+    this.aiClients.delete(merchantId);
   }
 
   /**
-   * Parse price from string or number
+   * Main entry point: Normalize any tool result using AI
+   * @param {string} toolName - Name of the tool that produced the result
+   * @param {object} rawResult - Raw API response
+   * @param {object} merchantContext - Must include merchantId
    */
-  parsePrice(value) {
-    if (typeof value === 'number') return value;
-    if (typeof value === 'string') {
-      // Remove currency symbols and commas
-      const cleaned = value.replace(/[₹$,]/g, '').trim();
-      const num = parseFloat(cleaned);
-      return !isNaN(num) ? num : value;
-    }
-    return value;
-  }
+  async normalizeToolResult(toolName, rawResult, merchantContext = {}) {
+    console.log(`\n=== AI Normalizing Result for Tool: ${toolName} ===`);
 
-  /**
-   * Calculate discount percentage
-   */
-  calculateDiscount(current, original) {
-    const c = parseFloat(current);
-    const o = parseFloat(original);
-    if (!isNaN(c) && !isNaN(o) && o > c) {
-      return Math.round(((o - c) / o) * 100);
+    if (!rawResult || (!rawResult.data && !rawResult.success)) {
+      return { products: [], summary: "No data received", raw: rawResult };
     }
-    return null;
-  }
 
-  /**
-   * Extract image URL
-   */
-  extractImage(product) {
-    const imageFields = ['image', 'img', 'thumbnail', 'photo', 'picture', 'imageUrl', 'image_url', 'src'];
-    
-    for (const field of imageFields) {
-      const value = product[field];
-      if (value) {
-        // Handle image objects
-        if (typeof value === 'object' && !Array.isArray(value)) {
-          return value.url || value.src || value.href;
-        }
-        // Handle arrays (take first image)
-        if (Array.isArray(value) && value.length > 0) {
-          const first = value[0];
-          return typeof first === 'object' ? (first.url || first.src) : first;
-        }
-        // Handle strings
-        if (typeof value === 'string') {
-          return value;
-        }
-      }
-    }
-    
-    return null;
-  }
+    const data = rawResult.data || rawResult;
+    const merchantId = merchantContext.merchantId;
 
-  /**
-   * Extract product URL
-   */
-  extractUrl(product) {
-    const urlFields = ['url', 'link', 'product_url', 'productUrl', 'href', 'permalink'];
-    
-    for (const field of urlFields) {
-      if (product[field] && typeof product[field] === 'string') {
-        return product[field];
-      }
-    }
-    
-    return null;
-  }
-
-  /**
-   * Extract description
-   */
-  extractDescription(product) {
-    const descFields = ['description', 'desc', 'summary', 'details', 'short_description'];
-    
-    for (const field of descFields) {
-      if (product[field]) {
-        const value = product[field];
-        return typeof value === 'object' ? JSON.stringify(value) : String(value);
-      }
-    }
-    
-    return null;
-  }
-
-  /**
-   * Normalize array of products
-   */
-  normalizeProducts(data) {
-    if (!data) return [];
-    
-    // Handle direct array
-    if (Array.isArray(data)) {
-      return data.map(item => this.normalizeProduct(item)).filter(Boolean);
-    }
-    
-    // Handle nested arrays
-    const possibleArrayFields = ['products', 'items', 'results', 'data', 'list'];
-    for (const field of possibleArrayFields) {
-      if (Array.isArray(data[field])) {
-        return data[field].map(item => this.normalizeProduct(item)).filter(Boolean);
-      }
-    }
-    
-    // Handle single product
-    if (typeof data === 'object') {
-      const normalized = this.normalizeProduct(data);
-      return normalized ? [normalized] : [];
-    }
-    
-    return [];
-  }
-
-  /**
-   * Use AI to intelligently normalize complex responses
-   */
-  async normalizeWithAI(rawData) {
-    if (!this.genAI) {
-      console.warn('AI normalization unavailable - falling back to basic normalization');
-      return this.normalizeProducts(rawData);
+    if (!merchantId) {
+      console.warn("No merchantId provided, using basic normalization");
+      return this.basicNormalization(data);
     }
 
     try {
-      const model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
+      // Use merchant's AI config to normalize the response
+      const normalized = await this.normalizeWithAI(
+        toolName,
+        data,
+        merchantId,
+        merchantContext
+      );
+      console.log(
+        `✅ AI Normalized ${normalized.products?.length || 0} products`
+      );
 
-      const prompt = `Parse this API response and extract clean product data. Make it UI-friendly.
-
-Raw Data:
-${JSON.stringify(rawData, null, 2).substring(0, 5000)}
-
-Requirements:
-1. Extract all products into a flat array
-2. Normalize complex price objects to simple numbers or {current, original}
-3. Extract image URLs (even from nested objects)
-4. Clean up field names
-5. Handle missing data gracefully
-
-Return ONLY valid JSON array in this format:
-[
-  {
-    "id": "unique-id",
-    "name": "Product Name",
-    "price": 599,
-    "image": "https://image-url.jpg",
-    "url": "https://product-url",
-    "description": "Brief description"
-  }
-]
-
-If data is too complex or malformed, return best effort extraction.`;
-
-      const result = await model.generateContent(prompt);
-      const response = result.response.text();
-      
-      // Extract JSON from response
-      let jsonText = response.trim();
-      if (jsonText.startsWith('```')) {
-        jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+      // If AI returned no products, fall back to basic normalization
+      // (AI might have parsed truncated data missing the products array)
+      if (!normalized.products || normalized.products.length === 0) {
+        console.log("AI returned no products, trying basic normalization...");
+        const basicResult = this.basicNormalization(data);
+        if (basicResult.products.length > 0) {
+          console.log(
+            `✅ Basic normalization found ${basicResult.products.length} products`
+          );
+          return basicResult;
+        }
       }
-      
-      const normalized = JSON.parse(jsonText);
-      
-      // Validate and clean the AI response
-      if (Array.isArray(normalized)) {
-        return normalized.map(item => this.normalizeProduct(item)).filter(Boolean);
-      }
-      
-      return [];
+
+      return normalized;
     } catch (error) {
-      console.error('AI normalization error:', error);
-      // Fallback to basic normalization
-      return this.normalizeProducts(rawData);
+      console.error("AI normalization failed:", error.message);
+      // Fallback to basic extraction
+      return this.basicNormalization(data);
     }
   }
 
   /**
-   * Normalize tool result for safe rendering
+   * Use merchant's configured AI to parse and normalize any API response
    */
-  async normalizeToolResult(toolResult) {
-    if (!toolResult || !toolResult.data) return toolResult;
+  async normalizeWithAI(toolName, data, merchantId, merchantContext) {
+    const model = await this.getModelForMerchant(merchantId);
+
+    if (!model) {
+      console.log(
+        "No AI model available for merchant, using basic normalization"
+      );
+      return this.basicNormalization(data);
+    }
+
+    // Truncate large responses to avoid token limits
+    const dataStr = JSON.stringify(data, null, 2);
+    const truncatedData =
+      dataStr.length > 15000
+        ? dataStr.substring(0, 15000) + "...(truncated)"
+        : dataStr;
+
+    const prompt = `You are a data parser. Analyze this API response and extract product/item information into a clean, consistent format.
+
+TOOL NAME: ${toolName}
+MERCHANT CONTEXT: ${JSON.stringify(merchantContext)}
+
+API RESPONSE:
+\`\`\`json
+${truncatedData}
+\`\`\`
+
+YOUR TASK:
+1. Identify all products/items in the response (could be nested anywhere)
+2. Extract key information for each: name, price, image, description, url, brand, category
+3. Normalize prices to simple numbers (e.g., if price is {current:{min:500}}, extract 500)
+4. Find the best image URL for each product
+5. Generate a brief summary of what was found
+
+RESPOND WITH ONLY THIS JSON FORMAT (no markdown, no explanation):
+{
+  "products": [
+    {
+      "id": "unique-id-or-index",
+      "name": "Product Name",
+      "price": 599,
+      "originalPrice": 799,
+      "currency": "₹",
+      "discount": "25% off",
+      "image": "https://full-image-url.jpg",
+      "description": "Brief product description",
+      "brand": "Brand Name",
+      "category": "Category",
+      "url": "https://product-page-url",
+      "rating": 4.5,
+      "inStock": true
+    }
+  ],
+  "totalCount": 100,
+  "summary": "Found 12 beauty products including lipsticks and shampoos, prices range from ₹250 to ₹500"
+}
+
+RULES:
+- If a field is not available, omit it (don't use null)
+- Prices must be numbers, not strings or objects
+- Images must be full URLs
+- Summary should be 1-2 sentences, helpful for chat display
+- Maximum 12 products in the response
+- If no products found, return empty products array with appropriate summary`;
 
     try {
-      // Try AI normalization first for complex data
-      const shouldUseAI = this.isComplexData(toolResult.data);
-      
-      let normalizedData;
-      if (shouldUseAI) {
-        normalizedData = await this.normalizeWithAI(toolResult.data);
-      } else {
-        normalizedData = this.normalizeProducts(toolResult.data);
+      const result = await model.generateContent(prompt);
+      const responseText = result.response.text().trim();
+
+      // Extract JSON from response (handle markdown code blocks)
+      let jsonText = responseText;
+      if (jsonText.includes("```")) {
+        const match = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/);
+        jsonText = match ? match[1].trim() : jsonText;
       }
+
+      // Parse and validate
+      const parsed = JSON.parse(jsonText);
+
+      // Validate structure
+      if (!parsed.products) {
+        parsed.products = [];
+      }
+
+      if (!Array.isArray(parsed.products)) {
+        parsed.products = [parsed.products];
+      }
+
+      // Clean up each product
+      parsed.products = parsed.products
+        .map((p, idx) => ({
+          id: p.id || `product-${idx}`,
+          name: p.name || "Unknown Product",
+          price:
+            typeof p.price === "number" ? p.price : this.extractNumber(p.price),
+          originalPrice:
+            typeof p.originalPrice === "number"
+              ? p.originalPrice
+              : this.extractNumber(p.originalPrice),
+          currency: p.currency || "₹",
+          discount: p.discount,
+          image: p.image,
+          description: p.description,
+          brand: p.brand,
+          category: p.category,
+          url: p.url,
+          rating: p.rating,
+          inStock: p.inStock,
+        }))
+        .filter((p) => p.name && p.name !== "Unknown Product");
 
       return {
-        ...toolResult,
-        data: normalizedData.length > 0 ? normalizedData : toolResult.data,
-        normalized: true
+        products: parsed.products,
+        totalCount: parsed.totalCount || parsed.products.length,
+        summary: parsed.summary || `Found ${parsed.products.length} items`,
+        normalized: true,
       };
     } catch (error) {
-      console.error('Normalization error:', error);
-      return toolResult;
+      console.error("AI parsing error:", error.message);
+      throw error;
     }
   }
 
   /**
-   * Check if data is complex enough to warrant AI normalization
+   * Basic normalization fallback when AI is unavailable
+   * Enhanced to handle common e-commerce API structures like Tira, Shopify, etc.
    */
-  isComplexData(data) {
-    if (!data || typeof data !== 'object') return false;
-    
-    // Check depth and complexity
-    const str = JSON.stringify(data);
-    const depth = (str.match(/\{/g) || []).length;
-    const hasNestedArrays = str.includes('[[');
-    const hasComplexPrices = str.includes('"effective"') || str.includes('"marked"');
-    
-    return depth > 5 || hasNestedArrays || hasComplexPrices;
+  basicNormalization(data) {
+    const products = [];
+
+    // Try to find products array
+    const findProducts = (obj, depth = 0) => {
+      if (depth > 5 || !obj) return;
+
+      if (Array.isArray(obj)) {
+        obj.forEach((item) => {
+          if (
+            item &&
+            typeof item === "object" &&
+            (item.name || item.title || item.product_name)
+          ) {
+            products.push(this.extractProductBasic(item));
+          } else {
+            findProducts(item, depth + 1);
+          }
+        });
+      } else if (typeof obj === "object") {
+        // Check common array field names (order matters - items is common in Tira)
+        const arrayFields = [
+          "items",
+          "products",
+          "results",
+          "data",
+          "list",
+          "records",
+          "hits",
+        ];
+        for (const field of arrayFields) {
+          if (Array.isArray(obj[field])) {
+            findProducts(obj[field], depth + 1);
+            return;
+          }
+        }
+
+        // Check if this object itself is a product
+        if (obj.name || obj.title || obj.product_name) {
+          products.push(this.extractProductBasic(obj));
+        }
+      }
+    };
+
+    findProducts(data);
+
+    // Get total count if available
+    const totalCount =
+      data?.page?.item_total ||
+      data?.total ||
+      data?.totalCount ||
+      products.length;
+
+    return {
+      products: products.slice(0, 12),
+      totalCount,
+      summary:
+        products.length > 0
+          ? `Found ${totalCount} item${totalCount > 1 ? "s" : ""}`
+          : "No products found in response",
+      normalized: true,
+    };
+  }
+
+  /**
+   * Extract product data using basic field mapping
+   * Enhanced to handle Tira, Shopify, and common e-commerce structures
+   */
+  extractProductBasic(item) {
+    // Extract brand (could be object or string)
+    let brandName = null;
+    if (typeof item.brand === "object" && item.brand?.name) {
+      brandName = item.brand.name;
+    } else if (typeof item.brand === "string") {
+      brandName = item.brand;
+    } else if (item.brand_name) {
+      brandName = item.brand_name;
+    }
+
+    // Extract category
+    let category = null;
+    if (
+      item.categories &&
+      Array.isArray(item.categories) &&
+      item.categories[0]
+    ) {
+      const cat = item.categories[0];
+      category = typeof cat === "object" ? cat.name : cat;
+    } else if (item.category) {
+      category =
+        typeof item.category === "object" ? item.category.name : item.category;
+    }
+
+    return {
+      id:
+        item.id ||
+        item._id ||
+        item.product_id ||
+        item.uid ||
+        Math.random().toString(36).substr(2, 9),
+      name:
+        item.name ||
+        item.title ||
+        item.product_name ||
+        item.productName ||
+        "Unknown",
+      price: this.extractPriceBasic(item),
+      originalPrice: this.extractOriginalPrice(item),
+      currency:
+        item.price?.current?.currency_symbol ||
+        item.price?.currency_symbol ||
+        "₹",
+      discount: this.extractDiscount(item),
+      image: this.extractImageBasic(item),
+      description:
+        item.description ||
+        item.desc ||
+        item.short_description ||
+        item.summary ||
+        item.teaser,
+      brand: brandName,
+      category: category,
+      url: item.url || item.link || item.product_url || item.slug,
+      rating: item.rating || item.ratings?.average || item.rating_average,
+      inStock:
+        item.sellable !== undefined
+          ? item.sellable
+          : item.in_stock !== undefined
+          ? item.in_stock
+          : true,
+    };
+  }
+
+  /**
+   * Extract price from various formats
+   * Handles: Tira ({effective, marked}), Shopify, and common e-commerce formats
+   */
+  extractPriceBasic(item) {
+    if (item.price && typeof item.price === "object") {
+      const priceObj = item.price;
+
+      // Tira format: {effective: {min: 500}, marked: {...}} - effective is current price
+      if (priceObj.effective && typeof priceObj.effective === "object") {
+        const eff = priceObj.effective;
+        if (eff.min !== undefined)
+          return typeof eff.min === "number" ? eff.min : parseFloat(eff.min);
+        if (eff.max !== undefined)
+          return typeof eff.max === "number" ? eff.max : parseFloat(eff.max);
+      }
+
+      // Other format: {current: {min: 500, max: 500}, original: {...}}
+      if (priceObj.current && typeof priceObj.current === "object") {
+        const current = priceObj.current;
+        if (current.min !== undefined)
+          return typeof current.min === "number"
+            ? current.min
+            : parseFloat(current.min);
+        if (current.max !== undefined)
+          return typeof current.max === "number"
+            ? current.max
+            : parseFloat(current.max);
+      }
+
+      // Direct price object: {min: 500, max: 500} (no wrapper)
+      if (priceObj.min !== undefined)
+        return typeof priceObj.min === "number"
+          ? priceObj.min
+          : parseFloat(priceObj.min);
+      if (priceObj.max !== undefined)
+        return typeof priceObj.max === "number"
+          ? priceObj.max
+          : parseFloat(priceObj.max);
+
+      // Simple values: {effective: 500}, {final: 500}, etc
+      const directFields = [
+        "effective",
+        "final",
+        "discounted",
+        "sale",
+        "value",
+        "amount",
+        "selling",
+      ];
+      for (const field of directFields) {
+        const val = priceObj[field];
+        if (typeof val === "number") return val;
+        if (typeof val === "string") return parseFloat(val);
+      }
+    }
+
+    // Check direct price fields on item
+    const priceFields = ["selling_price", "effective_price", "cost", "amount"];
+    for (const field of priceFields) {
+      const val = item[field];
+      if (typeof val === "number") return val;
+      if (typeof val === "string") return parseFloat(val);
+    }
+
+    return null;
+  }
+
+  /**
+   * Extract price value from complex structures
+   */
+  extractPriceValue(price) {
+    if (typeof price === "number") return price;
+    if (typeof price === "string") return this.extractNumber(price);
+
+    if (typeof price === "object") {
+      // Handle {current: {min: 500}} or {effective: 500}
+      const paths = [
+        ["current", "min"],
+        ["current", "max"],
+        ["current", "value"],
+        ["effective"],
+        ["discounted"],
+        ["sale"],
+        ["final"],
+        ["min"],
+        ["max"],
+        ["value"],
+        ["amount"],
+      ];
+
+      for (const path of paths) {
+        let val = price;
+        for (const key of path) {
+          val = val?.[key];
+        }
+        if (typeof val === "number") return val;
+        if (typeof val === "string") return this.extractNumber(val);
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Extract original/MRP price
+   */
+  extractOriginalPrice(item) {
+    // Tira format: price.marked is the original/MRP price
+    if (item.price?.marked && typeof item.price.marked === "object") {
+      const marked = item.price.marked;
+      if (marked.min !== undefined)
+        return typeof marked.min === "number"
+          ? marked.min
+          : parseFloat(marked.min);
+      if (marked.max !== undefined)
+        return typeof marked.max === "number"
+          ? marked.max
+          : parseFloat(marked.max);
+    }
+
+    // Other format: price.original.min
+    if (item.price?.original && typeof item.price.original === "object") {
+      const orig = item.price.original;
+      if (orig.min !== undefined)
+        return typeof orig.min === "number" ? orig.min : parseFloat(orig.min);
+      if (orig.max !== undefined)
+        return typeof orig.max === "number" ? orig.max : parseFloat(orig.max);
+    }
+
+    // Simple values
+    if (item.price?.marked && typeof item.price.marked === "number")
+      return item.price.marked;
+    if (item.price?.mrp && typeof item.price.mrp === "number")
+      return item.price.mrp;
+    if (item.price?.original && typeof item.price.original === "number")
+      return item.price.original;
+
+    const fields = [
+      "original_price",
+      "mrp",
+      "marked_price",
+      "compare_at_price",
+    ];
+    for (const field of fields) {
+      const val = item[field];
+      if (typeof val === "number") return val;
+      if (typeof val === "string") return parseFloat(val);
+    }
+
+    return null;
+  }
+
+  /**
+   * Extract discount info
+   */
+  extractDiscount(item) {
+    // Check for explicit discount
+    if (item.discount) {
+      if (typeof item.discount === "string") return item.discount;
+      if (typeof item.discount === "number") return `${item.discount}% off`;
+    }
+
+    // Check price.discount
+    if (item.price?.discount) {
+      if (typeof item.price.discount === "number")
+        return `${item.price.discount}% off`;
+      if (typeof item.price.discount === "string") return item.price.discount;
+    }
+
+    // Calculate from prices
+    const current = this.extractPriceBasic(item);
+    const original = this.extractOriginalPrice(item);
+
+    if (current && original && original > current) {
+      const discountPercent = Math.round(
+        ((original - current) / original) * 100
+      );
+      if (discountPercent > 0) return `${discountPercent}% off`;
+    }
+
+    return null;
+  }
+
+  /**
+   * Extract image URL from various formats
+   * Handles Tira (medias), Shopify (images), and other common structures
+   */
+  extractImageBasic(item) {
+    // Tira format: medias array with url field
+    if (item.medias && Array.isArray(item.medias) && item.medias[0]) {
+      const media = item.medias[0];
+      if (typeof media === "string") return media;
+      if (media.url) return media.url;
+      if (media.src) return media.src;
+    }
+
+    // Check for media (singular)
+    if (item.media) {
+      if (typeof item.media === "string") return item.media;
+      if (Array.isArray(item.media) && item.media[0]) {
+        const m = item.media[0];
+        return typeof m === "string" ? m : m.url || m.src;
+      }
+      if (item.media.url || item.media.src)
+        return item.media.url || item.media.src;
+    }
+
+    const imageFields = [
+      "image",
+      "img",
+      "thumbnail",
+      "photo",
+      "picture",
+      "image_url",
+      "imageUrl",
+      "src",
+      "featured_image",
+    ];
+
+    for (const field of imageFields) {
+      const val = item[field];
+      if (!val) continue;
+
+      if (typeof val === "string" && val.startsWith("http")) return val;
+      if (Array.isArray(val) && val[0]) {
+        const first = val[0];
+        if (typeof first === "string") return first;
+        if (first.url || first.src) return first.url || first.src;
+      }
+      if (typeof val === "object" && (val.url || val.src)) {
+        return val.url || val.src;
+      }
+    }
+
+    // Check nested images
+    if (item.images && Array.isArray(item.images) && item.images[0]) {
+      const img = item.images[0];
+      if (typeof img === "string") return img;
+      if (img.url || img.src) return img.url || img.src;
+      // Handle Shopify style: images[].image
+      if (img.image) return img.image;
+    }
+
+    return null;
+  }
+
+  /**
+   * Extract number from string or return null
+   */
+  extractNumber(val) {
+    if (typeof val === "number") return val;
+    if (typeof val === "string") {
+      const cleaned = val.replace(/[₹$,\s]/g, "");
+      const num = parseFloat(cleaned);
+      return !isNaN(num) ? num : null;
+    }
+    return null;
   }
 }
 
 module.exports = new ResponseNormalizerService();
-

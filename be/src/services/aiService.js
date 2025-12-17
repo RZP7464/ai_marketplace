@@ -423,8 +423,8 @@ Remember: You have access to real product data through tools. Use them intellige
         name: "Google Gemini",
         models: [
           {
-            id: "gemini-1.5-flash-latest",
-            name: "Gemini 1.5 Flash (Recommended)",
+            id: process.env.GEMINI_MODEL || 'gemini-2.5-pro',
+            name: process.env.GEMINI_MODEL || 'gemini-2.5-pro',
           },
           { id: "gemini-pro", name: "Gemini Pro" },
           { id: "gemini-1.5-pro-latest", name: "Gemini 1.5 Pro" },

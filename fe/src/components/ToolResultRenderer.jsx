@@ -1,180 +1,89 @@
 import React, { useState } from 'react';
-import { Image as ImageIcon, Package, ExternalLink, ChevronDown, ChevronUp, Check, X } from 'lucide-react';
+import { Package, ExternalLink, ChevronDown, ChevronUp, Check, X, Star, Tag, ShoppingBag } from 'lucide-react';
 
 /**
- * Dynamic renderer for MCP tool results
- * Automatically detects and renders:
- * - Images (URLs, base64, image arrays)
- * - Products (with images, prices, descriptions)
- * - Lists and arrays
- * - JSON data
- * - Success/Error states
+ * AI-Normalized Tool Result Renderer
+ * 
+ * Renders products from AI-normalized API responses in a clean, consistent format.
+ * The backend uses Gemini to parse ANY API response into this structure:
+ * {
+ *   products: [{ id, name, price, originalPrice, currency, image, description, brand, url, rating }],
+ *   totalCount: number,
+ *   summary: string
+ * }
  */
 const ToolResultRenderer = ({ result, toolName }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   if (!result) return null;
 
-  // Extract image URLs from various data structures
-  const extractImages = (data) => {
-    const images = [];
-    
-    const findImages = (obj, path = '') => {
-      if (!obj) return;
-      
-      if (typeof obj === 'string') {
-        // Check if it's an image URL
-        if (obj.match(/\.(jpg|jpeg|png|gif|webp|svg)/i) || 
-            obj.startsWith('data:image/') ||
-            obj.includes('cloudinary') ||
-            obj.includes('unsplash') ||
-            obj.includes('images.')) {
-          images.push({ url: obj, alt: path || 'Image' });
-        }
-      } else if (Array.isArray(obj)) {
-        obj.forEach((item, idx) => findImages(item, `${path}[${idx}]`));
-      } else if (typeof obj === 'object') {
-        // Check for common image field names
-        const imageFields = ['image', 'img', 'thumbnail', 'photo', 'picture', 'imageUrl', 'image_url'];
-        imageFields.forEach(field => {
-          if (obj[field]) {
-            const imgUrl = typeof obj[field] === 'string' ? obj[field] : obj[field]?.url;
-            if (imgUrl) {
-              images.push({ 
-                url: imgUrl, 
-                alt: obj.title || obj.name || obj.alt || field 
-              });
-            }
-          }
-        });
-        
-        // Recursively search other fields
-        Object.entries(obj).forEach(([key, value]) => {
-          if (!imageFields.includes(key.toLowerCase())) {
-            findImages(value, path ? `${path}.${key}` : key);
-          }
-        });
-      }
-    };
-    
-    findImages(data);
-    return [...new Set(images.map(img => JSON.stringify(img)))].map(img => JSON.parse(img));
-  };
-
-  // Extract product data
-  const extractProducts = (data) => {
-    if (!data) return [];
-    
-    // Handle array of products
-    if (Array.isArray(data)) {
-      return data.filter(item => 
-        item && (item.price || item.name || item.title || item.product_name)
-      );
-    }
-    
-    // Handle single product
-    if (data.price || data.name || data.title) {
-      return [data];
-    }
-    
-    // Handle nested products array
-    if (data.products && Array.isArray(data.products)) {
-      return data.products;
-    }
-    
-    if (data.items && Array.isArray(data.items)) {
-      return data.items;
-    }
-    
-    if (data.results && Array.isArray(data.results)) {
-      return data.results;
-    }
-    
-    return [];
-  };
-
-  const images = extractImages(result.data || result);
-  const products = extractProducts(result.data || result);
+  // Handle the normalized structure from backend
+  const { products = [], totalCount, summary, raw } = result;
+  const displayProducts = showAll ? products : products.slice(0, 6);
 
   return (
-    <div className="mt-3 pt-3 border-t border-gray-200/50">
-      <div className="flex items-center justify-between mb-2">
+    <div className="mt-3 pt-3 border-t border-gray-700/50">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-gray-700">Tool Results:</span>
-          <span className="text-xs text-gray-500 font-mono">{toolName}</span>
-          {result.success ? (
-            <Check className="w-3 h-3 text-green-600" />
-          ) : (
-            <X className="w-3 h-3 text-red-600" />
-          )}
+          <span className="text-xs text-gray-400">Tool Results:</span>
+          <span className="text-xs font-mono px-2 py-0.5 bg-green-500/20 text-green-400 rounded">
+            {toolName}
+          </span>
+          <Check className="w-3 h-3 text-green-500" />
         </div>
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+          className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
         >
-          {isExpanded ? (
-            <>
-              Hide <ChevronUp className="w-3 h-3" />
-            </>
-          ) : (
-            <>
-              Show <ChevronDown className="w-3 h-3" />
-            </>
-          )}
+          {isExpanded ? 'Hide' : 'Show'}
+          {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
         </button>
       </div>
 
-      {/* Error Message */}
-      {result.error && (
-        <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
-          <strong>Error:</strong> {result.error}
+      {/* Products Count */}
+      {products.length > 0 && (
+        <div className="flex items-center gap-2 mb-3">
+          <Package className="w-4 h-4 text-green-500" />
+          <span className="text-sm font-medium text-white">
+            {totalCount || products.length} Products Found
+          </span>
         </div>
       )}
 
       {/* Products Grid */}
       {products.length > 0 && (
-        <div className="mb-3">
-          <div className="flex items-center gap-1 mb-2">
-            <Package className="w-3 h-3 text-blue-600" />
-            <span className="text-xs font-medium text-gray-700">
-              {products.length} Product{products.length > 1 ? 's' : ''} Found
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-            {products.slice(0, 8).map((product, idx) => (
-              <ProductCard key={idx} product={product} />
-            ))}
-          </div>
-          {products.length > 8 && (
-            <p className="text-xs text-gray-500 mt-2 text-center">
-              +{products.length - 8} more products
-            </p>
-          )}
+        <div className="grid grid-cols-2 gap-3">
+          {displayProducts.map((product, idx) => (
+            <ProductCard key={product.id || idx} product={product} />
+          ))}
         </div>
       )}
 
-      {/* Images Grid */}
-      {images.length > 0 && products.length === 0 && (
-        <div className="mb-3">
-          <div className="flex items-center gap-1 mb-2">
-            <ImageIcon className="w-3 h-3 text-purple-600" />
-            <span className="text-xs font-medium text-gray-700">
-              {images.length} Image{images.length > 1 ? 's' : ''}
-            </span>
-          </div>
-          <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
-            {images.map((img, idx) => (
-              <ImageCard key={idx} image={img} />
-            ))}
-          </div>
+      {/* Show More Button */}
+      {products.length > 6 && (
+        <button
+          onClick={() => setShowAll(!showAll)}
+          className="w-full mt-3 py-2 text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-lg transition-colors"
+        >
+          {showAll ? 'Show Less' : `+${products.length - 6} more products`}
+        </button>
+      )}
+
+      {/* No Products Found */}
+      {products.length === 0 && summary && (
+        <div className="text-sm text-gray-400 py-2">
+          {summary}
         </div>
       )}
 
-      {/* Raw JSON Data (collapsed by default) */}
-      {isExpanded && (
-        <div className="mt-2">
-          <pre className="text-xs bg-gray-50 border border-gray-200 rounded p-2 overflow-x-auto max-h-64">
-            {JSON.stringify(result.data || result, null, 2)}
+      {/* Raw JSON (collapsed) */}
+      {isExpanded && raw && (
+        <div className="mt-3">
+          <div className="text-xs text-gray-500 mb-1">Raw API Response:</div>
+          <pre className="text-xs bg-gray-900 border border-gray-700 rounded-lg p-3 overflow-x-auto max-h-48 text-gray-400">
+            {JSON.stringify(raw, null, 2)}
           </pre>
         </div>
       )}
@@ -182,154 +91,123 @@ const ToolResultRenderer = ({ result, toolName }) => {
   );
 };
 
-// Product Card Component
+/**
+ * Product Card - Renders a single product with consistent styling
+ */
 const ProductCard = ({ product }) => {
   const [imgError, setImgError] = useState(false);
   
-  // Safe extraction helper
-  const safeExtract = (obj, keys) => {
-    for (const key of keys) {
-      const value = obj[key];
-      if (value !== undefined && value !== null) {
-        // If it's an object, try to extract a meaningful value
-        if (typeof value === 'object' && !Array.isArray(value)) {
-          // Common price object patterns: {effective: 599, marked: 799}
-          return value.effective || value.price || value.value || value.amount || JSON.stringify(value);
-        }
-        return value;
-      }
-    }
-    return null;
+  const {
+    name,
+    price,
+    originalPrice,
+    currency = '₹',
+    discount,
+    image,
+    description,
+    brand,
+    url,
+    rating,
+    category
+  } = product;
+
+  // Format price with currency
+  const formatPrice = (p) => {
+    if (!p && p !== 0) return null;
+    const num = typeof p === 'number' ? p : parseFloat(p);
+    if (isNaN(num)) return p;
+    return num.toLocaleString('en-IN');
   };
 
-  const image = safeExtract(product, ['image', 'img', 'thumbnail', 'photo', 'imageUrl', 'image_url']);
-  const name = safeExtract(product, ['name', 'title', 'product_name', 'productName']) || 'Product';
-  const rawPrice = safeExtract(product, ['price', 'cost', 'amount', 'effective_price']);
-  const url = safeExtract(product, ['url', 'link', 'product_url', 'productUrl', 'href']);
-
-  // Format price safely
-  const formatPrice = (price) => {
-    if (!price) return null;
-    
-    // If it's an object, try to get effective/discounted price
-    if (typeof price === 'object') {
-      const effectivePrice = price.effective || price.discounted || price.sale || price.final;
-      if (effectivePrice) return formatPrice(effectivePrice);
-      
-      // If has marked price, show both
-      if (price.marked || price.original) {
-        return (
-          <div>
-            <span className="text-xs font-semibold text-green-600">
-              ₹{formatPrice(price.effective || price.discounted)}
-            </span>
-            <span className="text-xs text-gray-400 line-through ml-1">
-              ₹{formatPrice(price.marked || price.original)}
-            </span>
-          </div>
-        );
-      }
-      
-      return null;
-    }
-    
-    // Handle string/number
-    if (typeof price === 'string') {
-      // Remove currency symbols and commas
-      const cleaned = price.replace(/[₹$,]/g, '').trim();
-      const num = parseFloat(cleaned);
-      return !isNaN(num) ? num.toLocaleString() : price;
-    }
-    
-    return typeof price === 'number' ? price.toLocaleString() : String(price);
-  };
-
-  const formattedPrice = formatPrice(rawPrice);
+  const hasDiscount = originalPrice && originalPrice > price;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-2 hover:shadow-md transition-shadow">
-      {image && !imgError && (
-        <img
-          src={image}
-          alt={String(name)}
-          className="w-full h-20 object-cover rounded mb-2"
-          onError={() => setImgError(true)}
-        />
+    <div className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+      {/* Image */}
+      {image && !imgError ? (
+        <div className="relative aspect-square bg-gray-100">
+          <img
+            src={image}
+            alt={name}
+            className="w-full h-full object-cover"
+            onError={() => setImgError(true)}
+          />
+          {/* Discount Badge */}
+          {discount && (
+            <div className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded">
+              {discount}
+            </div>
+          )}
+          {/* Rating Badge */}
+          {rating && (
+            <div className="absolute top-2 right-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5">
+              <Star className="w-3 h-3 fill-current" />
+              {rating}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="aspect-square bg-gray-100 flex items-center justify-center">
+          <ShoppingBag className="w-8 h-8 text-gray-300" />
+        </div>
       )}
-      <h4 className="text-xs font-medium text-gray-800 line-clamp-2 mb-1">
-        {String(name)}
-      </h4>
-      {formattedPrice && (
-        typeof formattedPrice === 'string' || typeof formattedPrice === 'number' ? (
-          <p className="text-xs font-semibold text-green-600">
-            ₹{formattedPrice}
+
+      {/* Content */}
+      <div className="p-3">
+        {/* Brand */}
+        {brand && (
+          <p className="text-xs text-gray-500 font-medium mb-0.5 truncate">
+            {brand}
           </p>
-        ) : (
-          formattedPrice
-        )
-      )}
-      {url && (
-        <a
-          href={String(url)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-1"
-        >
-          View <ExternalLink className="w-3 h-3" />
-        </a>
-      )}
+        )}
+
+        {/* Name */}
+        <h4 className="text-sm font-medium text-gray-900 line-clamp-2 mb-1.5 min-h-[2.5rem]">
+          {name}
+        </h4>
+
+        {/* Category Tag */}
+        {category && (
+          <div className="flex items-center gap-1 mb-2">
+            <Tag className="w-3 h-3 text-gray-400" />
+            <span className="text-xs text-gray-500">{category}</span>
+          </div>
+        )}
+
+        {/* Price */}
+        <div className="flex items-baseline gap-2">
+          <span className="text-base font-bold text-green-600">
+            {currency}{formatPrice(price)}
+          </span>
+          {hasDiscount && (
+            <span className="text-xs text-gray-400 line-through">
+              {currency}{formatPrice(originalPrice)}
+            </span>
+          )}
+        </div>
+
+        {/* Description */}
+        {description && (
+          <p className="text-xs text-gray-500 mt-1.5 line-clamp-2">
+            {description}
+          </p>
+        )}
+
+        {/* View Link */}
+        {url && (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+          >
+            View Product
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        )}
+      </div>
     </div>
   );
 };
 
-// Image Card Component
-const ImageCard = ({ image }) => {
-  const [imgError, setImgError] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
-
-  if (imgError) return null;
-
-  return (
-    <>
-      <div 
-        className="relative aspect-square bg-gray-100 rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
-        onClick={() => setIsOpen(true)}
-      >
-        <img
-          src={image.url}
-          alt={image.alt}
-          className="w-full h-full object-cover"
-          onError={() => setImgError(true)}
-        />
-      </div>
-
-      {/* Image Modal */}
-      {isOpen && (
-        <div 
-          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
-          onClick={() => setIsOpen(false)}
-        >
-          <div className="max-w-4xl max-h-[90vh] relative">
-            <button
-              onClick={() => setIsOpen(false)}
-              className="absolute -top-10 right-0 text-white hover:text-gray-300"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            <img
-              src={image.url}
-              alt={image.alt}
-              className="max-w-full max-h-[90vh] object-contain rounded-lg"
-            />
-            {image.alt && (
-              <p className="text-white text-sm text-center mt-2">{image.alt}</p>
-            )}
-          </div>
-        </div>
-      )}
-    </>
-  );
-};
-
 export default ToolResultRenderer;
-

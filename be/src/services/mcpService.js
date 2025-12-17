@@ -447,8 +447,8 @@ class MCPService {
       console.log('Merchant ID:', merchantId);
       console.log('Args:', args);
       
-      // Find the API configuration by tool name in payload
-      const api = await prisma.api.findFirst({
+      // Find the API configuration by tool name in payload.name OR payload.mcpConfig.toolName
+      let api = await prisma.api.findFirst({
         where: {
           merchantId: parseInt(merchantId),
           payload: { path: ['name'], equals: toolName }
@@ -458,12 +458,29 @@ class MCPService {
         }
       });
 
+      // If not found by payload.name, try payload.mcpConfig.toolName
+      if (!api) {
+        api = await prisma.api.findFirst({
+          where: {
+            merchantId: parseInt(merchantId),
+            payload: { path: ['mcpConfig', 'toolName'], equals: toolName }
+          },
+          include: {
+            credential: true
+          }
+        });
+      }
+
       if (!api) {
         console.log(`Tool '${toolName}' not found. Checking all APIs for merchant...`);
         const allApis = await prisma.api.findMany({
           where: { merchantId: parseInt(merchantId) }
         });
-        console.log('Available APIs:', allApis.map(a => ({ apiType: a.apiType, payloadName: a.payload?.name })));
+        console.log('Available APIs:', allApis.map(a => ({ 
+          apiType: a.apiType, 
+          payloadName: a.payload?.name,
+          mcpToolName: a.payload?.mcpConfig?.toolName 
+        })));
         throw new Error(`Tool '${toolName}' not found for merchant`);
       }
 
@@ -527,6 +544,15 @@ class MCPService {
       })
     };
 
+    // Add headers from payload if they exist
+    if (payload.headers && Array.isArray(payload.headers)) {
+      payload.headers.forEach(h => {
+        if (h.key && h.value) {
+          requestConfig.headers[h.key] = h.value;
+        }
+      });
+    }
+
     // Add authentication
     if (credential) {
       this.addAuthentication(requestConfig, credential, args);
@@ -539,10 +565,63 @@ class MCPService {
 
     // Add query parameters for GET requests
     if (requestConfig.method.toUpperCase() === 'GET') {
-      requestConfig.params = args;
+      requestConfig.params = this.buildQueryParams(payload, args);
     }
 
     return requestConfig;
+  }
+
+  /**
+   * Build query parameters from payload config and args
+   * Maps the AI's parameter names to the API's actual parameter names
+   */
+  buildQueryParams(payload, args) {
+    const params = {};
+    
+    // Common search parameter keys that should use dynamic query
+    const searchParamKeys = ['q', 'query', 'search', 'keyword', 'term', 'search_term'];
+    
+    // Get the dynamic search value from args
+    const searchValue = args.query || args.q || args.search || args.term || args.keyword;
+    
+    // Start with params from payload config
+    if (payload.params && Array.isArray(payload.params)) {
+      payload.params.forEach(p => {
+        if (p.key && p.value !== undefined) {
+          // Check if value is a placeholder like {{query}}
+          const placeholderMatch = String(p.value).match(/\{\{(\w+)\}\}/);
+          if (placeholderMatch) {
+            const argName = placeholderMatch[1];
+            // Replace placeholder with actual arg value
+            if (args[argName] !== undefined) {
+              params[p.key] = args[argName];
+            }
+          } else if (searchParamKeys.includes(p.key) && searchValue) {
+            // For search params, ALWAYS use the dynamic query value
+            params[p.key] = searchValue;
+          } else {
+            // Use static value from config for non-search params
+            params[p.key] = p.value;
+          }
+        }
+      });
+    }
+
+    // If no search param was set but we have a search value, add it
+    const hasSearchParam = searchParamKeys.some(key => params[key] !== undefined);
+    if (!hasSearchParam && searchValue) {
+      // Try to find the search param key from payload config
+      const searchParam = payload.params?.find(p => searchParamKeys.includes(p.key));
+      if (searchParam) {
+        params[searchParam.key] = searchValue;
+      } else {
+        // Default to 'q' which is most common
+        params.q = searchValue;
+      }
+    }
+
+    console.log('Built query params:', params, 'from args:', args);
+    return params;
   }
 
   /**
