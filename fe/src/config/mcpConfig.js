@@ -1,6 +1,6 @@
 /**
  * MCP (Model Context Protocol) Server Configuration
- * 
+ *
  * This file contains configuration for integrating with MCP servers
  * that provide ecommerce functionality.
  */
@@ -8,20 +8,23 @@
 export const mcpConfig = {
   // MCP Server endpoints
   endpoints: {
-    search: '/api/mcp/search',
-    addToCart: '/api/mcp/cart/add',
-    removeFromCart: '/api/mcp/cart/remove',
-    updateCart: '/api/mcp/cart/update',
-    getCart: '/api/mcp/cart',
-    checkout: '/api/mcp/checkout',
-    payment: '/api/mcp/payment',
-    coupons: '/api/mcp/coupons',
-    validateCoupon: '/api/mcp/coupons/validate',
+    search: "/api/mcp/search",
+    addToCart: "/api/mcp/cart/add",
+    removeFromCart: "/api/mcp/cart/remove",
+    updateCart: "/api/mcp/cart/update",
+    getCart: "/api/mcp/cart",
+    checkout: "/api/mcp/checkout",
+    payment: "/api/mcp/payment",
+    coupons: "/api/mcp/coupons",
+    validateCoupon: "/api/mcp/coupons/validate",
   },
 
   // Server configuration
   server: {
-    baseUrl: process.env.VITE_MCP_SERVER_URL || 'http://localhost:8000',
+    baseUrl:
+      import.meta.env.VITE_MCP_SERVER_URL ||
+      import.meta.env.VITE_API_URL ||
+      "http://localhost:3001",
     timeout: 30000, // 30 seconds
     retries: 3,
   },
@@ -43,7 +46,7 @@ export const mcpConfig = {
     searchDebounceMs: 300,
     messageAnimationMs: 300,
   },
-}
+};
 
 /**
  * MCP Server API Client
@@ -51,34 +54,34 @@ export const mcpConfig = {
  */
 export class MCPClient {
   constructor(config = mcpConfig) {
-    this.config = config
-    this.baseUrl = config.server.baseUrl
+    this.config = config;
+    this.baseUrl = config.server.baseUrl;
   }
 
   /**
    * Make a request to the MCP server
    */
   async request(endpoint, options = {}) {
-    const url = `${this.baseUrl}${endpoint}`
+    const url = `${this.baseUrl}${endpoint}`;
     const defaultOptions = {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       timeout: this.config.server.timeout,
-    }
+    };
 
     try {
-      const response = await fetch(url, { ...defaultOptions, ...options })
-      
+      const response = await fetch(url, { ...defaultOptions, ...options });
+
       if (!response.ok) {
-        throw new Error(`MCP Server Error: ${response.statusText}`)
+        throw new Error(`MCP Server Error: ${response.statusText}`);
       }
 
-      return await response.json()
+      return await response.json();
     } catch (error) {
-      console.error('MCP Client Error:', error)
-      throw error
+      console.error("MCP Client Error:", error);
+      throw error;
     }
   }
 
@@ -87,9 +90,9 @@ export class MCPClient {
    */
   async searchProducts(query, filters = {}) {
     return this.request(this.config.endpoints.search, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ query, filters }),
-    })
+    });
   }
 
   /**
@@ -97,9 +100,9 @@ export class MCPClient {
    */
   async addToCart(productId, quantity = 1) {
     return this.request(this.config.endpoints.addToCart, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ productId, quantity }),
-    })
+    });
   }
 
   /**
@@ -107,9 +110,9 @@ export class MCPClient {
    */
   async removeFromCart(productId) {
     return this.request(this.config.endpoints.removeFromCart, {
-      method: 'DELETE',
+      method: "DELETE",
       body: JSON.stringify({ productId }),
-    })
+    });
   }
 
   /**
@@ -117,16 +120,16 @@ export class MCPClient {
    */
   async updateCartItem(productId, quantity) {
     return this.request(this.config.endpoints.updateCart, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify({ productId, quantity }),
-    })
+    });
   }
 
   /**
    * Get cart contents
    */
   async getCart() {
-    return this.request(this.config.endpoints.getCart)
+    return this.request(this.config.endpoints.getCart);
   }
 
   /**
@@ -134,9 +137,9 @@ export class MCPClient {
    */
   async checkout(cartData, shippingInfo) {
     return this.request(this.config.endpoints.checkout, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ cart: cartData, shipping: shippingInfo }),
-    })
+    });
   }
 
   /**
@@ -144,16 +147,16 @@ export class MCPClient {
    */
   async processPayment(paymentData) {
     return this.request(this.config.endpoints.payment, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(paymentData),
-    })
+    });
   }
 
   /**
    * Get available coupons
    */
   async getCoupons() {
-    return this.request(this.config.endpoints.coupons)
+    return this.request(this.config.endpoints.coupons);
   }
 
   /**
@@ -161,30 +164,29 @@ export class MCPClient {
    */
   async validateCoupon(couponCode, cartTotal) {
     return this.request(this.config.endpoints.validateCoupon, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ code: couponCode, total: cartTotal }),
-    })
+    });
   }
 }
 
 // Export a default instance
-export const mcpClient = new MCPClient()
+export const mcpClient = new MCPClient();
 
 /**
  * Example Usage:
- * 
+ *
  * import { mcpClient } from './config/mcpConfig'
- * 
+ *
  * // Search for products
  * const results = await mcpClient.searchProducts('sneakers')
- * 
+ *
  * // Add to cart
  * await mcpClient.addToCart(productId, 2)
- * 
+ *
  * // Get cart
  * const cart = await mcpClient.getCart()
- * 
+ *
  * // Validate coupon
  * const discount = await mcpClient.validateCoupon('SAVE10', 100)
  */
-
