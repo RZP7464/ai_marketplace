@@ -4,9 +4,10 @@ const mcpService = require('./mcpService');
 class GeminiService {
   constructor() {
     this.apiKey = process.env.GEMINI_API_KEY;
+    this.modelName = process.env.GEMINI_MODEL || 'gemini-2.5-pro';
     if (this.apiKey) {
       this.genAI = new GoogleGenerativeAI(this.apiKey);
-      this.model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
+      this.model = this.genAI.getGenerativeModel({ model: this.modelName });
     }
   }
 
@@ -179,7 +180,7 @@ class GeminiService {
   async testApiKey(apiKey) {
     try {
       const testAI = new GoogleGenerativeAI(apiKey);
-      const testModel = testAI.getGenerativeModel({ model: 'gemini-pro' });
+      const testModel = testAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-2.5-pro' });
       
       const result = await testModel.generateContent('Hello');
       const response = result.response;

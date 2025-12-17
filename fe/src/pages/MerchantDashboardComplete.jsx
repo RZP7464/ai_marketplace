@@ -491,7 +491,7 @@ function MerchantDashboardComplete() {
                       </div>
                       <div>
                         <h4 className="text-white font-semibold">Google Gemini</h4>
-                        <p className="text-gray-400 text-xs">gemini-2.5-pro</p>
+                        <p className="text-gray-400 text-xs">{merchant.aiConfigurations?.[0]?.model || 'From ENV'}</p>
                       </div>
                     </div>
                     {(merchant.aiConfigurations?.[0]?.provider || 'gemini') === 'gemini' && (

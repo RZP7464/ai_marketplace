@@ -376,9 +376,9 @@ function MerchantSettings({ onLogout }) {
                     Fast and efficient AI models for text generation and tool calling.
                   </p>
                   <div className="space-y-1 text-xs text-gray-500">
-                    <p>• gemini-2.5-pro (Default)</p>
-                    <p>• gemini-2.0-flash</p>
-                    <p>• gemini-pro</p>
+                    <p>• Uses GEMINI_MODEL from env</p>
+                    <p>• Default: gemini-2.5-pro</p>
+                    <p>• Supports all Gemini models</p>
                   </div>
                 </div>
 

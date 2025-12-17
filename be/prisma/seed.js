@@ -178,7 +178,7 @@ async function main() {
       merchantId: fashionMerchant.id,
       provider: 'gemini',
       apiKey: process.env.GEMINI_API_KEY || 'your-gemini-api-key',
-      model: 'gemini-pro',
+      model: process.env.GEMINI_MODEL || 'gemini-2.5-pro',
       isActive: true,
       config: {
         temperature: 0.7,
@@ -298,7 +298,7 @@ async function main() {
       merchantId: electronicsMerchant.id,
       provider: 'gemini',
       apiKey: process.env.GEMINI_API_KEY || 'your-gemini-api-key',
-      model: 'gemini-pro',
+      model: process.env.GEMINI_MODEL || 'gemini-2.5-pro',
       isActive: true,
       config: {
         temperature: 0.8,
@@ -408,7 +408,7 @@ async function main() {
       merchantId: foodMerchant.id,
       provider: 'gemini',
       apiKey: process.env.GEMINI_API_KEY || 'your-gemini-api-key',
-      model: 'gemini-pro',
+      model: process.env.GEMINI_MODEL || 'gemini-2.5-pro',
       isActive: true,
       config: {
         temperature: 0.9,
