@@ -186,32 +186,91 @@ const ToolResultRenderer = ({ result, toolName }) => {
 const ProductCard = ({ product }) => {
   const [imgError, setImgError] = useState(false);
   
-  const image = product.image || product.img || product.thumbnail || product.photo;
-  const name = product.name || product.title || product.product_name || 'Product';
-  const price = product.price || product.cost || product.amount;
-  const url = product.url || product.link || product.product_url;
+  // Safe extraction helper
+  const safeExtract = (obj, keys) => {
+    for (const key of keys) {
+      const value = obj[key];
+      if (value !== undefined && value !== null) {
+        // If it's an object, try to extract a meaningful value
+        if (typeof value === 'object' && !Array.isArray(value)) {
+          // Common price object patterns: {effective: 599, marked: 799}
+          return value.effective || value.price || value.value || value.amount || JSON.stringify(value);
+        }
+        return value;
+      }
+    }
+    return null;
+  };
+
+  const image = safeExtract(product, ['image', 'img', 'thumbnail', 'photo', 'imageUrl', 'image_url']);
+  const name = safeExtract(product, ['name', 'title', 'product_name', 'productName']) || 'Product';
+  const rawPrice = safeExtract(product, ['price', 'cost', 'amount', 'effective_price']);
+  const url = safeExtract(product, ['url', 'link', 'product_url', 'productUrl', 'href']);
+
+  // Format price safely
+  const formatPrice = (price) => {
+    if (!price) return null;
+    
+    // If it's an object, try to get effective/discounted price
+    if (typeof price === 'object') {
+      const effectivePrice = price.effective || price.discounted || price.sale || price.final;
+      if (effectivePrice) return formatPrice(effectivePrice);
+      
+      // If has marked price, show both
+      if (price.marked || price.original) {
+        return (
+          <div>
+            <span className="text-xs font-semibold text-green-600">
+              ₹{formatPrice(price.effective || price.discounted)}
+            </span>
+            <span className="text-xs text-gray-400 line-through ml-1">
+              ₹{formatPrice(price.marked || price.original)}
+            </span>
+          </div>
+        );
+      }
+      
+      return null;
+    }
+    
+    // Handle string/number
+    if (typeof price === 'string') {
+      // Remove currency symbols and commas
+      const cleaned = price.replace(/[₹$,]/g, '').trim();
+      const num = parseFloat(cleaned);
+      return !isNaN(num) ? num.toLocaleString() : price;
+    }
+    
+    return typeof price === 'number' ? price.toLocaleString() : String(price);
+  };
+
+  const formattedPrice = formatPrice(rawPrice);
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-2 hover:shadow-md transition-shadow">
       {image && !imgError && (
         <img
           src={image}
-          alt={name}
+          alt={String(name)}
           className="w-full h-20 object-cover rounded mb-2"
           onError={() => setImgError(true)}
         />
       )}
       <h4 className="text-xs font-medium text-gray-800 line-clamp-2 mb-1">
-        {name}
+        {String(name)}
       </h4>
-      {price && (
-        <p className="text-xs font-semibold text-green-600">
-          ₹{typeof price === 'number' ? price.toLocaleString() : price}
-        </p>
+      {formattedPrice && (
+        typeof formattedPrice === 'string' || typeof formattedPrice === 'number' ? (
+          <p className="text-xs font-semibold text-green-600">
+            ₹{formattedPrice}
+          </p>
+        ) : (
+          formattedPrice
+        )
       )}
       {url && (
         <a
-          href={url}
+          href={String(url)}
           target="_blank"
           rel="noopener noreferrer"
           className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-1"

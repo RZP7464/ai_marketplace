@@ -1,6 +1,7 @@
 const prisma = require('../lib/prisma');
 const axios = require('axios');
 const https = require('https');
+const apiParserService = require('./apiParserService');
 
 class MCPService {
   /**

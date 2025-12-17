@@ -2,6 +2,7 @@ const express = require('express');
 const prisma = require('../lib/prisma');
 const mcpService = require('../services/mcpService');
 const aiService = require('../services/aiService');
+const responseNormalizerService = require('../services/responseNormalizerService');
 
 const router = express.Router();
 
@@ -92,11 +93,25 @@ router.post('/public/:merchantSlug', async (req, res) => {
     let allToolResults = [];
     
     if (aiResponse.functionResults?.length > 0) {
-      // Include all successful tool results
-      allToolResults = aiResponse.functionResults.filter(fr => fr.success);
+      // Include all successful tool results and normalize them
+      const successfulResults = aiResponse.functionResults.filter(fr => fr.success);
+      
+      // Normalize each result to make it UI-friendly
+      allToolResults = await Promise.all(
+        successfulResults.map(async (result) => {
+          try {
+            // Normalize complex API responses
+            const normalized = await responseNormalizerService.normalizeToolResult(result);
+            return normalized;
+          } catch (error) {
+            console.error('Error normalizing result:', error);
+            return result; // Return original if normalization fails
+          }
+        })
+      );
       
       // For backward compatibility, keep the first successful result as toolResult
-      const firstSuccess = aiResponse.functionResults.find(fr => fr.success && fr.data);
+      const firstSuccess = allToolResults.find(fr => fr.success && fr.data);
       if (firstSuccess) {
         toolResult = firstSuccess.data;
       }
@@ -109,7 +124,7 @@ router.post('/public/:merchantSlug', async (req, res) => {
         sessionId: session.id,
         toolsUsed: aiResponse.functionCalls?.length > 0,
         toolResult: toolResult, // For backward compatibility
-        toolResults: allToolResults, // All tool results for dynamic rendering
+        toolResults: allToolResults, // All normalized tool results for dynamic rendering
         tools: aiResponse.functionCalls?.map(fc => fc.name) || []
       }
     });

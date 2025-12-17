@@ -1,6 +1,7 @@
 const express = require("express");
 const prisma = require("../lib/prisma");
 const { authenticateToken } = require("../middleware/auth");
+const apiParserService = require("../services/apiParserService");
 
 const router = express.Router();
 
@@ -434,6 +435,53 @@ router.post("/upload-logo", authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       error: "Internal server error",
+    });
+  }
+});
+
+// POST /api/merchant/parse-api - Parse curl command or API config intelligently
+router.post("/parse-api", authenticateToken, async (req, res) => {
+  try {
+    const { curlCommand, apiType } = req.body;
+
+    if (!curlCommand) {
+      return res.status(400).json({
+        success: false,
+        error: "curlCommand is required"
+      });
+    }
+
+    // Parse curl and generate semantic tool configuration
+    const enhancedPayload = await apiParserService.generateEnhancedPayload(
+      curlCommand,
+      apiType || 'custom_api'
+    );
+
+    // Generate tool schema for MCP
+    const toolSchema = apiParserService.generateToolSchema(enhancedPayload);
+
+    res.json({
+      success: true,
+      data: {
+        payload: enhancedPayload,
+        toolSchema,
+        preview: {
+          toolName: enhancedPayload.name,
+          description: enhancedPayload.description,
+          parameters: enhancedPayload.parameterMapping.map(p => ({
+            name: p.semanticName,
+            type: p.type,
+            description: p.description,
+            required: p.required
+          }))
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Parse API error:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message || "Failed to parse API configuration"
     });
   }
 });
