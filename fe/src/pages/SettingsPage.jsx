@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Bot, Link2, Zap, Check, X, Copy, ExternalLink, Loader } from 'lucide-react';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import { API_BASE_URL } from '../config/api';
 
 const SettingsPage = ({ merchantId = 6 }) => {
   const [settings, setSettings] = useState(null);

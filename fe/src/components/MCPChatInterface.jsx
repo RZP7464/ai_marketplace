@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Bot, User, Zap, Loader, RefreshCw, AlertCircle } from 'lucide-react';
 import ToolResultRenderer from './ToolResultRenderer';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import { API_BASE_URL } from '../config/api';
 
 const MCPChatInterface = ({ merchantId, merchantName }) => {
   const [sessionId, setSessionId] = useState(null);

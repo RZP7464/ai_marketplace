@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import MCPChatInterface from '../components/MCPChatInterface';
 import { Store, Loader } from 'lucide-react';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import { API_BASE_URL } from '../config/api';
 
 const ChatPage = () => {
   const [merchants, setMerchants] = useState([]);

@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ShoppingBag, MessageSquare, X, Plus, Minus, Send, Loader, Star, ChevronRight, Sparkles, Wrench, Zap, Info, CheckCircle } from 'lucide-react';
 import ToolResultRenderer from '../components/ToolResultRenderer';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import { API_BASE_URL } from '../config/api';
 
 /**
  * PublicChat Component

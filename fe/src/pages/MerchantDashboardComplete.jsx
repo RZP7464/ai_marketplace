@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import apiService from '../services/api';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import { API_BASE_URL } from '../config/api';
 
 function MerchantDashboardComplete() {
   const [loading, setLoading] = useState(true);

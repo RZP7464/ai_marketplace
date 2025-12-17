@@ -13,8 +13,7 @@ import {
 import BrandIdentity from "./BrandIdentity";
 import ApiConfiguration from "./ApiConfiguration";
 import apiService from "../services/api";
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+import { API_BASE_URL } from '../config/api';
 
 function MerchantSettings({ onLogout }) {
   const [activeTab, setActiveTab] = useState("brand"); // 'brand', 'api', or 'ai'

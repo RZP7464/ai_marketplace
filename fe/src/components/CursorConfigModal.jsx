@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { X, Copy, Check, Download } from 'lucide-react';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import { API_BASE_URL } from '../config/api';
 
 function CursorConfigModal({ isOpen, onClose }) {
   const [config, setConfig] = useState(null);
