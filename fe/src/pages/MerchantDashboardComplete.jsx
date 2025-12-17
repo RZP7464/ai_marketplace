@@ -346,15 +346,18 @@ function MerchantDashboardComplete() {
                     </p>
                   </div>
                 </div>
-                <a
-                  href="/settings"
+                <button
+                  onClick={() => {
+                    window.history.pushState({}, '', '/settings')
+                    window.dispatchEvent(new PopStateEvent('popstate'))
+                  }}
                   className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium rounded-lg transition-all flex items-center gap-2 shadow-lg hover:shadow-xl"
                 >
                   <span>Open Settings</span>
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
-                </a>
+                </button>
               </div>
             </div>
           </div>

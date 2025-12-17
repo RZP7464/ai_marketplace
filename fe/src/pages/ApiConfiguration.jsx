@@ -152,7 +152,7 @@ const parseCurlCommand = (curlString) => {
   return config
 }
 
-function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false }) {
+function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false, initialApiConfigs = null }) {
   const [currentApiIndex, setCurrentApiIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -174,8 +174,25 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false })
     }))
   ]
   
-  const [apiConfigs, setApiConfigs] = useState(
-    DEFAULT_API_CONFIGS.filter(api => api.key !== '2fa').reduce((acc, api) => ({
+  const [apiConfigs, setApiConfigs] = useState(() => {
+    // If initial configs provided, use them
+    if (initialApiConfigs) {
+      // Merge with default structure to ensure all fields exist
+      const merged = DEFAULT_API_CONFIGS.filter(api => api.key !== '2fa').reduce((acc, api) => ({
+        ...acc,
+        [api.key]: initialApiConfigs[api.key] || {
+          url: '',
+          method: 'GET',
+          headers: [{ key: '', value: '' }],
+          params: [{ key: '', value: '' }],
+          body: ''
+        }
+      }), {})
+      return merged
+    }
+    
+    // Default empty configs
+    return DEFAULT_API_CONFIGS.filter(api => api.key !== '2fa').reduce((acc, api) => ({
       ...acc,
       [api.key]: {
         url: '',
@@ -185,7 +202,7 @@ function ApiConfiguration({ onNext, onBack, brandData, isSettingsMode = false })
         body: ''
       }
     }), {})
-  )
+  })
   
   // 2FA specific state
   const [twoFactorConfigs, setTwoFactorConfigs] = useState({
