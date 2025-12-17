@@ -212,14 +212,30 @@ function AppProfessional() {
     return <PublicChat merchantSlug={merchantSlug} />
   }
 
+  // Check if user is logged in for protected routes
+  const isLoggedIn = () => {
+    return !!localStorage.getItem('token')
+  }
+
   // Show merchant dashboard
   if (currentRoute === 'dashboard') {
+    if (!isLoggedIn()) {
+      window.history.pushState({}, '', '/login')
+      setCurrentRoute('auth')
+      return <AuthPage onLogin={handleMerchantAuth} />
+    }
     return <MerchantDashboardComplete />
   }
 
   // Show merchant settings
   if (currentRoute === 'settings') {
+    if (!isLoggedIn()) {
+      window.history.pushState({}, '', '/login')
+      setCurrentRoute('auth')
+      return <AuthPage onLogin={handleMerchantAuth} />
+    }
     const handleLogout = () => {
+      localStorage.removeItem('token')
       setMerchantData(null)
       setBrandData(null)
       window.history.pushState({}, '', '/login')
