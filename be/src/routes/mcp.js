@@ -142,10 +142,13 @@ router.get('/merchants/:merchantId/stream', async (req, res) => {
 
 /**
  * List all available tools for a merchant
- * GET /api/mcp/merchants/:merchantId/tools
+ * GET /api/mcp/merchants/:merchantId/tools OR /api/mcp/:merchantId/tools
  * merchantId can be either numeric ID or slug
+ * 
+ * IMPORTANT: Only returns tools for APIs that have been configured in the database
+ * If a merchant has not set up an API configuration, its tool will NOT appear here
  */
-router.get('/merchants/:merchantId/tools', async (req, res) => {
+const getToolsHandler = async (req, res) => {
   let { merchantId } = req.params;
 
   try {
@@ -163,7 +166,15 @@ router.get('/merchants/:merchantId/tools', async (req, res) => {
       merchantId = merchant.id;
     }
 
+    // Get tools - this ONLY returns tools for APIs configured in database
     const { merchant, tools } = await mcpService.getMerchantTools(merchantId);
+
+    // Additional verification: ensure each tool has valid API configuration
+    const verifiedTools = tools.filter(tool => {
+      return tool.metadata && tool.metadata.apiId && tool.metadata.authId;
+    });
+
+    console.log(`✅ Merchant ${merchant.name}: ${verifiedTools.length} tools with valid API configurations`);
 
     res.json({
       success: true,
@@ -172,12 +183,16 @@ router.get('/merchants/:merchantId/tools', async (req, res) => {
         name: merchant.name,
         slug: merchant.slug
       },
-      tools: tools.map(tool => ({
+      tools: verifiedTools.map(tool => ({
         name: tool.name,
         description: tool.description,
-        inputSchema: tool.inputSchema
+        inputSchema: tool.inputSchema,
+        apiType: tool.metadata?.apiType
       })),
-      count: tools.length
+      count: verifiedTools.length,
+      message: verifiedTools.length === 0 
+        ? 'No API configurations found for this merchant. Please configure APIs in the dashboard.'
+        : `${verifiedTools.length} tools available based on configured APIs`
     });
   } catch (error) {
     console.error('Error listing tools:', error);
@@ -186,7 +201,11 @@ router.get('/merchants/:merchantId/tools', async (req, res) => {
       error: error.message
     });
   }
-});
+};
+
+// Support both URL patterns for backward compatibility
+router.get('/merchants/:merchantId/tools', getToolsHandler);
+router.get('/:merchantId/tools', getToolsHandler);
 
 /**
  * Execute a specific tool

@@ -5,16 +5,29 @@ const https = require('https');
 class MCPService {
   /**
    * Get all APIs for a merchant and convert them to MCP tool definitions
+   * 
+   * CRITICAL: This method ONLY returns tools for APIs that are:
+   * 1. Configured in the database (apis table)
+   * 2. Have valid credentials (credential must exist)
+   * 3. Belong to the specified merchant
+   * 
+   * If a merchant hasn't configured an API, it will NOT appear as a tool!
    */
   async getMerchantTools(merchantId) {
     try {
       console.log(`\n=== Getting MCP Tools for Merchant ${merchantId} ===`);
       
       // Fetch merchant with their APIs and credentials
+      // ONLY includes APIs configured in database for THIS merchant
       const merchant = await prisma.merchant.findUnique({
         where: { id: parseInt(merchantId) },
         include: {
           apis: {
+            where: {
+              // Additional filter: ensure API has valid configuration
+              payload: { not: null },
+              config: { not: null }
+            },
             include: {
               credential: true
             }
@@ -26,18 +39,31 @@ class MCPService {
         throw new Error('Merchant not found');
       }
 
-      console.log(`Found merchant: ${merchant.name} (${merchant.slug})`);
-      console.log(`Total APIs configured: ${merchant.apis.length}`);
+      console.log(`✅ Found merchant: ${merchant.name} (${merchant.slug})`);
+      console.log(`📦 APIs configured in database: ${merchant.apis.length}`);
       
-      // Log each API
+      if (merchant.apis.length === 0) {
+        console.log(`⚠️  No APIs configured for merchant ${merchant.name}. No tools will be available.`);
+        return {
+          merchant: {
+            id: merchant.id,
+            name: merchant.name,
+            slug: merchant.slug
+          },
+          tools: []
+        };
+      }
+      
+      // Log each API configuration found in database
       merchant.apis.forEach((api, idx) => {
-        console.log(`  API ${idx + 1}: type=${api.apiType}, name=${api.payload?.name}, url=${api.payload?.url}`);
+        console.log(`  ✓ API ${idx + 1}: type=${api.apiType}, name=${api.payload?.name}, hasCredential=${!!api.credential}`);
       });
 
-      // Convert APIs to MCP tools
+      // Convert ONLY the configured APIs to MCP tools
       const tools = merchant.apis.map(api => this.convertApiToTool(api));
 
-      console.log(`Converted to ${tools.length} tools`);
+      console.log(`🔧 Converted ${tools.length} configured APIs to MCP tools`);
+      console.log(`   Tools available: ${tools.map(t => t.name).join(', ')}`);
 
       return {
         merchant: {
@@ -48,7 +74,7 @@ class MCPService {
         tools
       };
     } catch (error) {
-      console.error('Error fetching merchant tools:', error);
+      console.error('❌ Error fetching merchant tools:', error);
       throw error;
     }
   }

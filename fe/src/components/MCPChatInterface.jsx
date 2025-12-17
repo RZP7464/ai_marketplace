@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Zap, Loader, RefreshCw } from 'lucide-react';
+import { Send, Bot, User, Zap, Loader, RefreshCw, AlertCircle } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -71,14 +71,22 @@ const MCPChatInterface = ({ merchantId, merchantName }) => {
 
   const loadMCPTools = async (mId) => {
     try {
+      // Fetch tools - returns ONLY tools for APIs configured in database
       const response = await fetch(`${API_BASE_URL}/api/mcp/${mId}/tools`);
       const data = await response.json();
 
       if (data.success) {
-        setAvailableTools(data.tools);
+        setAvailableTools(data.tools || []);
+        
+        // Log for debugging
+        console.log(`📦 Loaded ${data.tools?.length || 0} tools from configured APIs`);
+        if (data.tools?.length === 0) {
+          console.warn('⚠️  No tools available. This merchant has not configured any APIs in the database.');
+        }
       }
     } catch (error) {
       console.error('Error loading MCP tools:', error);
+      setAvailableTools([]);
     }
   };
 
@@ -237,11 +245,11 @@ const MCPChatInterface = ({ merchantId, merchantName }) => {
       </div>
 
       {/* Available Tools Panel */}
-      {availableTools.length > 0 && (
+      {availableTools.length > 0 ? (
         <div className="bg-white border-b border-gray-200 px-6 py-3">
           <div className="flex items-center gap-2 flex-wrap">
             <Zap className="w-4 h-4 text-yellow-500" />
-            <span className="text-sm font-medium text-gray-700">Available Tools:</span>
+            <span className="text-sm font-medium text-gray-700">Available Tools (from configured APIs):</span>
             {availableTools.map((tool) => (
               <span
                 key={tool.name}
@@ -251,6 +259,16 @@ const MCPChatInterface = ({ merchantId, merchantName }) => {
                 {tool.name}
               </span>
             ))}
+          </div>
+        </div>
+      ) : sessionId && (
+        <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-600" />
+            <span className="text-sm text-amber-800">
+              No tools available. This merchant has not configured any APIs in the database. 
+              Please configure APIs in the merchant dashboard to enable MCP tools.
+            </span>
           </div>
         </div>
       )}
